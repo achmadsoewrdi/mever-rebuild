@@ -1,8 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import "@fastify/jwt";
 import { redisCache } from "../loaders";
-import { success } from "zod";
-
+import { errorResponse } from "../utils/response";
 declare module "@fastify/jwt" {
   interface FastifyJWT {
     user: {
@@ -30,18 +29,12 @@ export const authenticate = async (
       if (isBlacklist) {
         return reply
           .status(401)
-          .send({
-            success: false,
-            message: "Token tidak valid,silahkan login ulang",
-          });
+          .send(errorResponse("Token tidak valid,silahkan login ulang"));
       }
     }
   } catch (err) {
     reply
       .status(401)
-      .send({
-        success: false,
-        message: "Unauthorized: token tidak valid atau expired",
-      });
+      .send(errorResponse("Unauthorized: token tidak valid atau expired"));
   }
 };
