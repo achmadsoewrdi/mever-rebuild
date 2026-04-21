@@ -1,7 +1,11 @@
-import { connectToPostgres } from "./loaders/postgres";
-import { redisCache } from "./loaders/redis";
-import { initMinioBuckets } from "./loaders/minio";
-import { buildFastify, loadFastifyPlugins } from "./loaders/fastify";
+import { connect } from "node:http2";
+import {
+  buildFastify,
+  connectToPostgres,
+  initMinioBuckets,
+  loadFastifyPlugins,
+} from "./loaders";
+import { healthRoutes } from "./modules/health/health.routes";
 import { env } from "./config/env";
 
 const start = async () => {
@@ -11,11 +15,12 @@ const start = async () => {
   await initMinioBuckets();
   await loadFastifyPlugins(app);
 
+  await healthRoutes.register(app);
+
   await app.listen({ port: Number(env.PORT), host: "0.0.0.0" });
-  console.log(`🚀 Server running on port ${env.PORT}`);
 };
 
 start().catch((err) => {
-  console.error("Fatal error:", err);
+  console.error("Failed to start server", err);
   process.exit(1);
 });
