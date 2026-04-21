@@ -1,21 +1,12 @@
-import { connect } from "node:http2";
-import {
-  buildFastify,
-  connectToPostgres,
-  initMinioBuckets,
-  loadFastifyPlugins,
-} from "./loaders";
-import { healthRoutes } from "./modules/health/health.routes";
+import { connectToPostgres, initMinioBuckets } from "./loaders";
+import { buildApp } from "./app";
 import { env } from "./config/env";
 
 const start = async () => {
-  const app = buildFastify();
-
   await connectToPostgres();
   await initMinioBuckets();
-  await loadFastifyPlugins(app);
 
-  await healthRoutes.register(app);
+  const app = await buildApp();
 
   await app.listen({ port: Number(env.PORT), host: "0.0.0.0" });
 };

@@ -3,7 +3,7 @@ import bycrypt from "bcryptjs";
 const SALT = 12;
 
 export const hashPassword = async (plainPassword: string): Promise<string> => {
-  return bycrypt.hash(plainPassword, plainPassword);
+  return bycrypt.hash(plainPassword, SALT);
 };
 
 export const comparePassword = async (
