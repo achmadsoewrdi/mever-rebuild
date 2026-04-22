@@ -49,6 +49,23 @@ class VideoRepository {
       .limit(1);
     return result[0];
   }
+
+  // create video
+  async create(data: typeof videos.$inferInsert): Promise<Video> {
+    const result = await db.insert(videos).values(data).returning();
+    return result[0];
+  }
+
+  // update video
+  async update(
+    id: string,
+    status: "uploading" | "queued" | "processing" | "ready" | "failed",
+  ): Promise<void> {
+    await db
+      .update(videos)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(videos.id, id));
+  }
 }
 
 export const videosRepository = new VideoRepository();

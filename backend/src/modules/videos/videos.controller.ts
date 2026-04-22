@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { videoService } from "./videos.service";
-import { videoFilterSchema } from "./videos.schema";
+import { requestUploadSchema, videoFilterSchema } from "./videos.schema";
 import { SuccessResponse, errorResponse } from "../../utils/response";
 
 class VideoController {
@@ -40,6 +40,48 @@ class VideoController {
       }
       console.log("Get By Id Error:", err);
       reply.status(500).send(errorResponse("Terjadi Kesalahan Server"));
+    }
+  }
+
+  // menangani post request upload /videos/request-upload
+  async requestUpload(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const parsed = requestUploadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(errorResponse("Input tidak valid", parsed.error.issues));
+    }
+    try {
+      const userId = request.user.sub;
+      const result = await videoService.requestUpload(userId, parsed.data);
+      reply
+        .status(200)
+        .send(SuccessResponse(result, "Presigned URL berhasil dibuat"));
+    } catch (err: any) {
+      console.error("Request Upload Error:", err);
+      reply.status(500).send(errorResponse("Terjadi Kesalahan Server"));
+    }
+  }
+
+  // menangani post /videos/:id/confirm
+  async confirmUpload(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const { id } = request.params as { id: string };
+    try {
+      await videoService.confirmUpload(id);
+      reply
+        .status(200)
+        .send(
+          SuccessResponse(null, "Upload terkonfirmasi. Video siap ditonton"),
+        );
+    } catch (err: any) {
+      console.error("Confirm Upload Error:", err);
+      reply.status(500).send(errorResponse("Terjadi kesalahan Server"));
     }
   }
 }

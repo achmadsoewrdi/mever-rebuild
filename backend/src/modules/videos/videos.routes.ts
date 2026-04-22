@@ -17,6 +17,20 @@ class VideoRoutes {
       { preHandler: authenticate },
       videosController.getById.bind(videosController),
     );
+
+    // post /videos/request-upload
+    app.post(
+      "/videos/request-upload",
+      { preHandler: authenticate },
+      videosController.requestUpload.bind(videosController),
+    );
+
+    // post /videos/:id/confirm
+    app.post(
+      "/videos/:id/confirm",
+      { preHandler: authenticate },
+      videosController.confirmUpload.bind(videosController),
+    );
   }
 }
 
