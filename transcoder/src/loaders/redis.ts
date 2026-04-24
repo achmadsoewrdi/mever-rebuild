@@ -1,50 +1,42 @@
 import { Redis, RedisOptions } from "ioredis";
 import { env } from "../config/env";
 
-class RedisLoader {
-  // properti (Variabel) milik class
-  public main: Redis;
-  public queue: Redis;
+// 1. Konfigurasi Redis
+const redisConfig: RedisOptions = {
+  host: env.REDIS_HOST,
+  port: parseInt(env.REDIS_PORT, 10),
+  password: env.REDIS_PASS,
+  retryStrategy: (times: number) => Math.min(times * 50, 2000),
+};
 
-  // construcor
-  constructor() {
-    const redisConfig: RedisOptions = {
-      host: env.REDIS_HOST,
-      port: parseInt(env.REDIS_PORT, 10),
-      password: env.REDIS_PASS,
-      retryStrategy: (times: number) => Math.min(times * 50, 2000),
-    };
+// 2. Inisialisasi koneksi langsung secara bebas
+export const redisMain = new Redis(redisConfig);
+export const redisQueue = new Redis(redisConfig);
 
-    this.main = new Redis(redisConfig);
-    this.queue = new Redis(redisConfig);
-    this.setupListeners();
-  }
+// 3. Setup pendengar (listener) langsung diikat ke variabelnya
+redisMain.on("connect", () => {
+  console.log(
+    "[REDIS MAIN BERHASIL] Berhasil terhubung ke redis untuk operasi umum",
+  );
+});
+redisMain.on("error", (err) => {
+  console.error("[REDIS MAIN ERROR] Gagal terhubung:", err.message);
+});
 
-  private setupListeners() {
-    this.main.on("connect", () => {
-      console.log(
-        "[REDIS MAIN BERHASIL] Berhasil terhubung ke redis untuk operasi umum",
-      );
-    });
-    this.main.on("error", (err) => {
-      console.log("[REDIS MAIN ERROR] Gagal terhubung", err.message);
-    });
+redisQueue.on("connect", () => {
+  console.log(
+    "[REDIS QUEUE BERHASIL] Berhasil terhubung ke redis untuk operasi antrian",
+  );
+});
+redisQueue.on("error", (err) => {
+  console.error("[REDIS QUEUE ERROR] Gagal terhubung:", err.message);
+});
 
-    this.queue.on("connect", () => {
-      console.log(
-        "[REDIS QUEUE BERHASIL] Berhasil terhubung ke redis untuk operasi antrian",
-      );
-    });
-    this.queue.on("error", (err) => {
-      console.log("[REDIS QUEUE ERROR] Gagal terhubung", err.message);
-    });
-  }
-
-  public async disconnect() {
-    await this.main.quit();
-    await this.queue.quit();
-    console.log("[KONEKSI REDIS BERHASIL DITUTUP]");
-  }
-}
-
-export const redisLoader = new RedisLoader();
+/**
+ * 4. Fungsi murni untuk memutus koneksi dengan aman
+ */
+export const disconnectRedis = async (): Promise<void> => {
+  await redisMain.quit();
+  await redisQueue.quit();
+  console.log("[KONEKSI REDIS BERHASIL DITUTUP]");
+};
