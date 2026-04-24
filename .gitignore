@@ -2,3 +2,6 @@ DEVELOPMENT_STEPS.md
 backend/.env
 backend/node_modules
 backend/dist
+transcoder/.env
+transcoder/node_modules
+transcoder/dist
