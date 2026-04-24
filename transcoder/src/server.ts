@@ -1,19 +1,22 @@
-// transcoder/src/server.ts
+import { minioLoader } from "./loaders/minio";
+import { ffmpegLoader } from "./loaders/ffmpeg"; // <-- 1. Import ffmpegLoader
 
-import { env } from "./config/env";
-import { redisLoader } from "./loaders/redis";
-
-const startServer = async () => {
-  console.log("✅ Validasi Environment BERHASIL!");
-  console.log("🎥 Transcoder siap dijalankan dengan ID:", env.WORKER_ID);
-
+const startApp = async () => {
   try {
-    // Kita panggil secara eksplisit untuk mengetes koneksi (Nge-Ping)
-    const balasan = await redisLoader.main.ping();
-    console.log("🏓 Tes Ping ke Redis membalas:", balasan); // Harusnya mencetak "PONG"
+    console.log("Memulai inisialisasi layanan Transcoder...");
+
+    // Inisialisasi MinIO
+    await minioLoader.initBuckets();
+
+    // 2. Inisialisasi pengecekan FFmpeg
+    // (Perhatikan ejaannya sesuai dengan yang kamu ketik, yaitu verifyInstalation)
+    await ffmpegLoader.verifyInstalation();
+
+    console.log("✅ Semua inisialisasi selesai.");
   } catch (error) {
-    console.error("🔴 Gagal melakukan ping ke Redis:", error);
+    console.error("❌ Gagal memulai layanan:", error);
+    process.exit(1);
   }
 };
 
-startServer();
+startApp();
