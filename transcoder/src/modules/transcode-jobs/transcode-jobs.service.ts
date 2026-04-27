@@ -16,7 +16,25 @@ export const downloadFromMinio = async (
     console.log(`[MINIO DOWNLOAD] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(
-      `[MINIO UPLOAD ERROR] Gagal mengunggah:${LocalPath}:`,
+      `[MINIO DOWNLOAD ERROR] Gagal mengunduh:${LocalPath}:`,
+      err.message,
+    );
+    throw err;
+  }
+};
+
+// upload to minio
+export const uploadToMinio = async (
+  localPath: string,
+  bucket: string,
+  objectName: string,
+): Promise<void> => {
+  try {
+    await minioClient.fPutObject(bucket, objectName, localPath, {});
+    console.log(`[MINIO UPLOAD] sukses: ${objectName}`);
+  } catch (err: any) {
+    console.error(
+      `[MINIO UPLOAD ERROR] Gagal mengunggah ${localPath}:`,
       err.message,
     );
     throw err;
@@ -48,11 +66,12 @@ export const createThumbnail = async (
   outputDir: string,
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const filename = `${slug}-thumb.jpg`;
+    const filename = `${slug}-thumb.png`;
     ffmpeg(sourcePath)
       .screenshot({
         timestamps: ["00:00:02.000"],
         folder: outputDir,
+        filename: filename,
         size: "1280x720",
       })
       .on("end", () => {
@@ -81,16 +100,25 @@ export const transcodeVideo = async (
   return new Promise((resolve, reject) => {
     let command = ffmpeg(sourcePath);
     if (codec === "h264") {
-      command = command.outputOption("libx264");
+      command = command.videoCodec("libx264");
     } else if (codec === "h265" || codec === "hevc") {
       command = command.videoCodec("libx265");
     } else if (codec === "vp9") {
       command = command.videoCodec("libvpx-vp9");
+    } else if (codec === "vp8") {
+      command = command.videoCodec("libvpx");
+    } else if (codec === "av1") {
+      command = command.videoCodec("libaom-av1");
     }
 
     command = command.audioCodec("aac");
 
     command = command.size(`?x${resolutionHeight}`);
+    command = command
+      .addOption("-preset", "veryfast") // ← ini paling penting! tradeoff speed vs filesize
+      .addOption("-crf", "23") // quality constant (18=bagus, 28=kecil, 23=balance)
+      .addOption("-threads", "2") // batasi per proses, jangan berebut CPU
+      .addOption("-movflags", "+faststart");
 
     if (packager === "hls") {
       command = command

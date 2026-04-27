@@ -18,6 +18,7 @@
   "type": "commonjs",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "axios": "^1.15.2",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

@@ -30,6 +30,10 @@ const envSchema = z.object({
   // Worker Info
   WORKER_ID: z.string().default("worker-1"),
   FRONTEND_URL: z.string().default("http://localhost:3000"),
+
+  // Default Transcode Settings
+  DEFAULT_CODEC: z.enum(["h264", "h265", "vp9", "vp8", "av1"]).default("h264"),
+  DEFAULT_PACKAGER: z.enum(["hls", "dash", "plain"]).default("hls"),
 });
 
 export const env = envSchema.parse(process.env);
