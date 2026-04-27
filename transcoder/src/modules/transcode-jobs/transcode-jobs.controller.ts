@@ -165,14 +165,7 @@ export const listenUploadQueue = async () => {
       // Aturan: Jika video >= 720p → pecah ke beberapa resolusi (720p, 480p, 360p)
       //         Jika video < 720p  → render satu resolusi saja (resolusi aslinya)
       // ---------------------------------------------------------------
-      let targetResolutions: { name: string; height: number }[] = [];
-
-      if (height >= 720) {
-        targetResolutions = getResolutionByRule(height);
-      } else {
-        // Video beresolusi rendah tidak perlu dipecah, cukup dirender apa adanya
-        targetResolutions = [{ name: `${height}p`, height: height }];
-      }
+      const targetResolutions = getResolutionByRule(height);
 
       // ---------------------------------------------------------------
       // Buat data job render untuk setiap resolusi target
@@ -246,6 +239,8 @@ export const listenTranscodeQueue = async (workerId: string) => {
   while (true) {
     // Deklarasi di luar try-catch agar bisa diakses oleh blok catch untuk pelaporan error
     let currentJobId: string | undefined;
+    let currentSlug: string | undefined;
+    let currentLocalSourcePath: string | undefined;
 
     try {
       const data = await redisQueue.blpop(env.REDIS_QUEUE_TRANSCODE_KEY, 0);
@@ -266,6 +261,8 @@ export const listenTranscodeQueue = async (workerId: string) => {
       } = jobData;
 
       currentJobId = jobId;
+      currentSlug = slug;
+      currentLocalSourcePath = jobData.localSourcePath;
 
       console.log(
         `\n[${workerId}] Memulai render — Job: ${jobId} | Resolusi: ${resolutionHeight}p`,
@@ -396,6 +393,26 @@ export const listenTranscodeQueue = async (workerId: string) => {
 
       if (currentJobId) {
         await setJobFailed(currentJobId, err.message).catch(() => null);
+      }
+
+      // Bersihkan file temp yang mungkin terbuat sebelum error terjadi
+      try {
+        const tempDir = path.join(__dirname, "../../../temp");
+        if (currentSlug) {
+          const files = await fs.readdir(tempDir);
+          for (const file of files) {
+            if (file.startsWith(currentSlug)) {
+              await fs.unlink(path.join(tempDir, file)).catch(() => null);
+            }
+          }
+          console.log(`[${workerId}] File temp sisa dari job yang gagal berhasil dibersihkan.`);
+        }
+        // Hapus file source jika ada
+        if (currentLocalSourcePath) {
+          await fs.unlink(currentLocalSourcePath).catch(() => null);
+        }
+      } catch {
+        // abaikan error cleanup
       }
     }
   }

@@ -1,5 +1,6 @@
 import { minioClient } from "../../loaders/minio";
 import { ffmpeg } from "../../loaders/ffmpeg";
+import { getBestEncoder } from "../../utils/hardware-acceleration";
 
 // ==========================================
 // A. LAYANAN MINIO (STORAGE)
@@ -97,56 +98,99 @@ export const transcodeVideo = async (
   packager: "hls" | "dash" | "plain",
   onProgress: (percent: number) => void,
 ): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    let command = ffmpeg(sourcePath);
-    if (codec === "h264") {
-      command = command.videoCodec("libx264");
-    } else if (codec === "h265" || codec === "hevc") {
-      command = command.videoCodec("libx265");
-    } else if (codec === "vp9") {
-      command = command.videoCodec("libvpx-vp9");
-    } else if (codec === "vp8") {
-      command = command.videoCodec("libvpx");
-    } else if (codec === "av1") {
-      command = command.videoCodec("libaom-av1");
-    }
+  const bestCodec = await getBestEncoder(codec as any);
+  console.log(
+    `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec}`,
+  );
 
-    command = command.audioCodec("aac");
+  const runFfmpeg = (selectedCodec: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      let command = ffmpeg(sourcePath);
+      command = command.videoCodec(selectedCodec);
+      command = command.audioCodec("aac");
+      command = command.size(`?x${resolutionHeight}`);
 
-    command = command.size(`?x${resolutionHeight}`);
-    command = command
-      .addOption("-preset", "veryfast") // ← ini paling penting! tradeoff speed vs filesize
-      .addOption("-crf", "23") // quality constant (18=bagus, 28=kecil, 23=balance)
-      .addOption("-threads", "2") // batasi per proses, jangan berebut CPU
-      .addOption("-movflags", "+faststart");
+      // GPU Encoders usually have different preset names
+      if (selectedCodec.includes("nvenc")) {
+        command = command
+          .addOption("-preset", "fast") // Menggunakan nama preset lama (fast/medium/slow) untuk kompatibilitas
+          .addOption("-rc", "vbr")
+          .addOption("-cq", "23");
+      } else if (selectedCodec.includes("qsv")) {
+        command = command
+          .addOption("-preset", "veryfast")
+          .addOption("-global_quality", "23");
+      } else if (selectedCodec.includes("amf")) {
+        command = command.addOption("-quality", "balanced");
+      } else {
+        // Default CPU (libx264/libx265)
+        command = command
+          .addOption("-preset", "veryfast")
+          .addOption("-crf", "23");
+      }
 
-    if (packager === "hls") {
       command = command
-        .addOption("-hls_time", "10")
-        .addOption("-hls_list_size", "0")
-        .addOption("-f", "hls");
-    } else if (packager === "dash") {
-      command = command.addOption("-f", "dash");
-    } else {
-      command = command.addOption("-f", "mp4");
-    }
+        .addOption("-threads", "0")
+        .addOption("-movflags", "+faststart");
 
-    command
-      .output(outputPath)
-      .on("progress", (progress) => {
-        if (progress.percent && !isNaN(progress.percent)) {
-          // Melempar angka ke atas agar dicatat oleh database (lewat fungsi callback)
-          onProgress(Math.round(progress.percent));
-        }
-      })
-      .on("end", () => {
-        console.log(`[FFMPEG TRANSCODE] Selesai merender: ${outputPath}`);
-        resolve();
-      })
-      .on("error", (err) => {
-        console.error(`[FFMPEG TRANSCODE ERROR] Gagal merender:`, err.message);
-        reject(err);
-      })
-      .run();
-  });
+      if (packager === "hls") {
+        command = command
+          .addOption("-hls_time", "10")
+          .addOption("-hls_list_size", "0")
+          .addOption("-f", "hls");
+      } else if (packager === "dash") {
+        command = command.addOption("-f", "dash");
+      } else {
+        command = command.addOption("-f", "mp4");
+      }
+
+      command
+        .output(outputPath)
+        .on("start", (commandLine) => {
+          console.log(`[FFMPEG COMMAND] ${commandLine}`);
+        })
+        .on("progress", (progress) => {
+          if (progress.percent && !isNaN(progress.percent)) {
+            onProgress(Math.round(progress.percent));
+          }
+        })
+        .on("end", () => {
+          console.log(`[FFMPEG TRANSCODE] Selesai merender: ${outputPath}`);
+          resolve();
+        })
+        .on("error", (err, stdout, stderr) => {
+          if (stderr) {
+            console.error(`[FFMPEG STDERR]`, stderr);
+          }
+          reject(err);
+        })
+        .run();
+    });
+  };
+
+  try {
+    await runFfmpeg(bestCodec);
+  } catch (err: any) {
+    // Jika gagal menggunakan hardware encoder, coba fallback ke CPU
+    const isHardware =
+      bestCodec.includes("nvenc") ||
+      bestCodec.includes("qsv") ||
+      bestCodec.includes("amf");
+
+    if (isHardware) {
+      console.warn(
+        `[FFMPEG FALLBACK] Hardware encoder (${bestCodec}) gagal. Mencoba dengan CPU...`,
+      );
+      const fallbackCodec =
+        codec === "h264"
+          ? "libx264"
+          : codec === "h265" || codec === "hevc"
+            ? "libx265"
+            : codec;
+      await runFfmpeg(fallbackCodec);
+    } else {
+      console.error(`[FFMPEG TRANSCODE ERROR] Gagal merender:`, err.message);
+      throw err;
+    }
+  }
 };
