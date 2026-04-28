@@ -19,7 +19,7 @@
 
 <span
 	class={cn(
-		'inline-flex items-center rounded-full border border-transparent px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase transition-all duration-200',
+		'inline-flex items-center rounded-md border border-transparent px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase transition-all duration-200',
 		variants[color],
 		className
 	)}

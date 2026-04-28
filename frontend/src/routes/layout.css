@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Paksa dark: variant mengikuti class .dark (bukan OS setting)
+   Ini penting di Tailwind v4 agar konsisten dengan CSS variables
+   ============================================================ */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Branding Colors */
   --color-primary: #FF1744;
@@ -40,7 +46,7 @@
   --border-color: #dddddd;
 }
 
-/* Selector .dark atau [data-theme='dark'] untuk Dark Mode */
+/* Selector .dark untuk Dark Mode */
 .dark {
   --bg-primary: #0a0a0a;
   --bg-secondary: #141414;
@@ -52,4 +58,11 @@
   --text-muted: #666666;
 
   --border-color: #2a2a2a;
+}
+
+/* Base body styles menggunakan CSS variables */
+html, body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

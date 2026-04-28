@@ -59,7 +59,7 @@
 			type={currentType}
 			bind:value
 			class={cn(
-				'w-full rounded-xl border text-sm shadow-sm transition-all duration-200',
+				'w-full rounded-md border text-sm shadow-sm transition-all duration-200',
 				'text-slate-900 dark:text-slate-100',
 				'placeholder:text-slate-400 dark:placeholder:text-slate-600',
 				'disabled:cursor-not-allowed disabled:opacity-50',
