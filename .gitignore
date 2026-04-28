@@ -6,3 +6,5 @@ transcoder/.env
 transcoder/node_modules
 transcoder/dist
 dbschemaanalisys.md
+FRONTEND_DEVELOPMENT_STEPS.md
+component_plan.md
