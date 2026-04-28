@@ -41,6 +41,10 @@ export const updateThumbnailUrl = async (id: string, url: string) => {
   await db.update(videos).set({ thumbnailUrl: url, updatedAt: new Date() }).where(eq(videos.id, id));
 };
 
+export const updateVideoMetadata = async (id: string, durationSeconds: number, fileSizeBytes: number) => {
+  await db.update(videos).set({ durationSeconds, fileSizeBytes, updatedAt: new Date() }).where(eq(videos.id, id));
+};
+
 export const incrementDoneJobs = async (id: string) => {
   const result = await db
     .update(videos)

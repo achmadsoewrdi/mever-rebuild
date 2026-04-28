@@ -20,6 +20,7 @@ import {
   updateVideoStatus,
   updateVideoTotalJobs,
   updateThumbnailUrl,
+  updateVideoMetadata,
   incrementDoneJobs,
   createAsset,
 } from "./videos.repository";
@@ -38,29 +39,28 @@ import {
 // =================================================================
 
 /**
- * Menganalisis file video dan mengembalikan tinggi resolusinya (dalam piksel).
- * Contoh: video 1280x720 akan mengembalikan angka 720.
+ * Menganalisis file video untuk mengambil resolusi, durasi, dan ukuran file.
  *
- * @param filePath - Path absolut ke file video di penyimpanan lokal
- * @returns Promise yang berisi tinggi resolusi video dalam satuan piksel
+ * @param filePath - Path absolut ke file video
  */
-const getVideoHeight = (filePath: string): Promise<number> => {
+const getVideoMetadata = (
+  filePath: string,
+): Promise<{ height: number; duration: number; size: number }> => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) return reject(err);
 
-      // Cari stream yang bertipe video (bukan audio)
-      const videoStream = metadata.streams.find(
-        (s) => s.codec_type === "video",
-      );
+      const videoStream = metadata.streams.find((s) => s.codec_type === "video");
 
       if (!videoStream || !videoStream.height) {
-        return reject(
-          new Error("Tinggi resolusi video tidak ditemukan di metadata."),
-        );
+        return reject(new Error("Metadata video tidak valid."));
       }
 
-      resolve(videoStream.height);
+      resolve({
+        height: videoStream.height,
+        duration: Math.round(metadata.format.duration || 0),
+        size: metadata.format.size || 0,
+      });
     });
   });
 };
@@ -132,10 +132,17 @@ export const listenUploadQueue = async () => {
       );
 
       // ---------------------------------------------------------------
-      // Analisis resolusi asli video menggunakan FFprobe
+      // Analisis metadata video (Resolusi, Durasi, Ukuran)
       // ---------------------------------------------------------------
-      const height = await getVideoHeight(localSourcePath);
-      console.log(`[UPLOAD WORKER] Resolusi asli terdeteksi: ${height}p`);
+      const metadata = await getVideoMetadata(localSourcePath);
+      const { height, duration, size } = metadata;
+
+      console.log(
+        `[UPLOAD WORKER] Metadata: ${height}p | ${duration}s | ${Math.round(size / 1024 / 1024)}MB`,
+      );
+
+      // Update metadata ke database
+      await updateVideoMetadata(videoData.id, duration, size);
 
       // ---------------------------------------------------------------
       // Buat thumbnail dan unggah ke bucket publik MinIO
