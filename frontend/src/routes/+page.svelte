@@ -30,19 +30,21 @@
 {#snippet modalFooter()}
 	<div class="flex justify-end gap-2">
 		<Button variant="secondary" onclick={() => (isModalOpen = false)}>Batal</Button>
-		<Button onclick={() => { toast.success('Perubahan disimpan!'); isModalOpen = false; }}>
+		<Button
+			onclick={() => {
+				toast.success('Perubahan disimpan!');
+				isModalOpen = false;
+			}}
+		>
 			Simpan Perubahan
 		</Button>
 	</div>
 {/snippet}
 
 <div class="mx-auto max-w-4xl space-y-10 p-8 pb-24">
-
 	<!-- Header -->
 	<header class="space-y-1.5 border-b border-border-base pb-8">
-		<h1 class="text-4xl font-black tracking-tight text-text-main">
-			Design System Showcase
-		</h1>
+		<h1 class="text-4xl font-black tracking-tight text-text-main">Design System Showcase</h1>
 		<p class="text-base text-text-sub">
 			Demonstrasi seluruh komponen UI yang telah dibangun untuk Mever Rebuild.
 		</p>
@@ -54,7 +56,9 @@
 			<Bell size={18} class="text-primary" />
 			Status & Labels
 		</h2>
-		<div class="flex flex-wrap items-center gap-6 rounded-lg border border-border-base bg-bg-secondary p-6">
+		<div
+			class="flex flex-wrap items-center gap-6 rounded-lg border border-border-base bg-bg-secondary p-6"
+		>
 			<div class="space-y-2">
 				<p class="text-[10px] font-bold tracking-widest text-text-muted uppercase">Badges</p>
 				<div class="flex flex-wrap gap-2">
@@ -64,7 +68,7 @@
 					<Badge label="Default" />
 				</div>
 			</div>
-			<div class="h-10 w-px bg-border-base hidden sm:block"></div>
+			<div class="hidden h-10 w-px bg-border-base sm:block"></div>
 			<div class="space-y-2">
 				<p class="text-[10px] font-bold tracking-widest text-text-muted uppercase">Format Tags</p>
 				<div class="flex flex-wrap gap-2">
@@ -84,7 +88,9 @@
 			<Sliders size={18} class="text-primary" />
 			Input & Controls
 		</h2>
-		<div class="grid grid-cols-1 gap-6 rounded-lg border border-border-base bg-bg-secondary p-6 md:grid-cols-2">
+		<div
+			class="grid grid-cols-1 gap-6 rounded-lg border border-border-base bg-bg-secondary p-6 md:grid-cols-2"
+		>
 			<!-- Kolom Kiri -->
 			<div class="space-y-4">
 				<Input
@@ -111,13 +117,15 @@
 					placeholder="Ketik judul atau ID video..."
 					trailingIcon={SearchIcon}
 				/>
-				<div class="rounded-md border border-border-base bg-bg-surface p-4 space-y-1">
+				<div class="space-y-1 rounded-md border border-border-base bg-bg-surface p-4">
 					<p class="text-xs text-text-muted">Live Preview Input:</p>
 					<p class="text-sm text-text-main">
 						Email: <span class="font-semibold text-primary">{username || '—'}</span>
 					</p>
 					<p class="text-sm text-text-main">
-						Checkbox: <span class="font-semibold text-primary">{isChecked ? 'Aktif ✓' : 'Nonaktif'}</span>
+						Checkbox: <span class="font-semibold text-primary"
+							>{isChecked ? 'Aktif ✓' : 'Nonaktif'}</span
+						>
 					</p>
 				</div>
 			</div>
@@ -130,10 +138,10 @@
 			<Layers size={18} class="text-primary" />
 			Buttons & Actions
 		</h2>
-		<div class="rounded-lg border border-border-base bg-bg-secondary p-6 space-y-4">
+		<div class="space-y-4 rounded-lg border border-border-base bg-bg-secondary p-6">
 			<!-- Variant Row -->
 			<div>
-				<p class="text-[10px] font-bold tracking-widest text-text-muted uppercase mb-3">Variants</p>
+				<p class="mb-3 text-[10px] font-bold tracking-widest text-text-muted uppercase">Variants</p>
 				<div class="flex flex-wrap gap-3">
 					<Button>Primary</Button>
 					<Button variant="secondary">Secondary</Button>
@@ -145,7 +153,7 @@
 			</div>
 			<!-- Size Row -->
 			<div>
-				<p class="text-[10px] font-bold tracking-widest text-text-muted uppercase mb-3">Sizes</p>
+				<p class="mb-3 text-[10px] font-bold tracking-widest text-text-muted uppercase">Sizes</p>
 				<div class="flex flex-wrap items-center gap-3">
 					<Button size="sm">Small</Button>
 					<Button size="default">Default</Button>
@@ -154,7 +162,7 @@
 			</div>
 			<!-- Loading & Disabled -->
 			<div>
-				<p class="text-[10px] font-bold tracking-widest text-text-muted uppercase mb-3">States</p>
+				<p class="mb-3 text-[10px] font-bold tracking-widest text-text-muted uppercase">States</p>
 				<div class="flex flex-wrap items-center gap-3">
 					<Button variant="secondary" class="gap-2">
 						<Spinner size="sm" /> Loading...
@@ -172,9 +180,7 @@
 			Feedback — Toast & Modal
 		</h2>
 		<div class="flex flex-wrap gap-3 rounded-lg border border-border-base bg-bg-secondary p-6">
-			<Button onclick={() => toast.success('Video berhasil di-upload!')}>
-				Toast Success
-			</Button>
+			<Button onclick={() => toast.success('Video berhasil di-upload!')}>Toast Success</Button>
 			<Button variant="destructive" onclick={() => toast.error('Gagal memproses video.')}>
 				Toast Error
 			</Button>
@@ -184,9 +190,7 @@
 			<Button variant="ghost" onclick={() => toast.warning('Storage hampir penuh!')}>
 				Toast Warning
 			</Button>
-			<Button variant="secondary" onclick={() => (isModalOpen = true)}>
-				Buka Modal
-			</Button>
+			<Button variant="secondary" onclick={() => (isModalOpen = true)}>Buka Modal</Button>
 		</div>
 	</section>
 </div>
@@ -197,7 +201,7 @@
 		<p class="text-text-sub">
 			Apakah kamu yakin ingin menyimpan perubahan ini? Tindakan ini akan memperbarui profil kamu.
 		</p>
-		<div class="rounded-md border border-border-base bg-bg-surface p-4 space-y-1">
+		<div class="space-y-1 rounded-md border border-border-base bg-bg-surface p-4">
 			<p class="text-xs text-text-muted">Email yang akan disimpan:</p>
 			<p class="font-mono font-bold text-primary">{username || 'Belum diisi'}</p>
 		</div>
