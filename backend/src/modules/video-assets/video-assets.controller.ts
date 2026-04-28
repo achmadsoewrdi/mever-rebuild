@@ -1,29 +1,20 @@
-// src/modules/video-assets/video-assets.controller.ts
-
 import { FastifyRequest, FastifyReply } from "fastify";
-import { videoAssetsService } from "./video-assets.service";
+import { getAssets } from "./video-assets.service";
+import { SuccessResponse, errorResponse } from "../../utils/response";
 
-class VideoAssetsController {
-  async getAssets(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { id } = request.params as { id: string }; // Ambil ID video dari URL
-
-      // Panggil service
-      const assets = await videoAssetsService.getAssets(id);
-
-      // Kembalikan response JSON yang standar
-      return reply.code(200).send({
-        status: "success",
-        data: assets,
-      });
-    } catch (error: any) {
-      console.error("[VIDEO ASSETS ERROR]", error);
-      return reply.code(500).send({
-        status: "error",
-        message: "Internal Server Error",
-      });
-    }
+// ============================================
+//  HANDLER: GET /videos/:id/assets
+// ============================================
+export const handleGetAssets = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> => {
+  const { id } = request.params as { id: string };
+  try {
+    const assets = await getAssets(id);
+    reply.status(200).send(SuccessResponse(assets, "Berhasil mengambil aset video"));
+  } catch (err: any) {
+    console.error("[VIDEO ASSETS ERROR]", err);
+    reply.status(500).send(errorResponse("Terjadi kesalahan server"));
   }
-}
-
-export const videoAssetsController = new VideoAssetsController();
+};

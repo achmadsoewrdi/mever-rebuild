@@ -2,15 +2,15 @@ import { eq } from "drizzle-orm";
 import { db } from "../../../drizzle/db";
 import { videoAssets } from "../../../drizzle/schema";
 
-class VideoAssetsRepository {
-  async findByVideoId(videoId: string) {
-    const assets = await db
-      .select()
-      .from(videoAssets)
-      .where(eq(videoAssets.videoId, videoId));
+type VideoAsset = typeof videoAssets.$inferSelect;
 
-    return assets;
-  }
-}
+// ============================================
+//  REPOSITORY: Video Assets
+// ============================================
 
-export const videoAssetsRepository = new VideoAssetsRepository();
+export const findAssetsByVideoId = async (videoId: string): Promise<VideoAsset[]> => {
+  return db
+    .select()
+    .from(videoAssets)
+    .where(eq(videoAssets.videoId, videoId));
+};

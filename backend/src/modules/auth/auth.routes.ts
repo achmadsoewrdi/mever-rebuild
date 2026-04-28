@@ -1,17 +1,17 @@
 import { FastifyInstance } from "fastify";
-import { authController } from "./auth.controller";
+import { handleRegister, handleLogin, handleLogout } from "./auth.controller";
 import { authenticate } from "../../middlewares/authenticate";
 
-class AuthRoutes {
-  async register(app: FastifyInstance): Promise<void> {
-    app.post("/auth/register", authController.register.bind(authController));
-    app.post("/auth/login", authController.login.bind(authController));
-    app.post(
-      "/auth/logout",
-      { preHandler: authenticate },
-      authController.logout.bind(authController),
-    );
-  }
-}
+// ============================================
+//  ROUTES: Auth
+// ============================================
+export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> => {
+  // POST /auth/register
+  app.post("/auth/register", handleRegister);
 
-export const authRoutes = new AuthRoutes();
+  // POST /auth/login
+  app.post("/auth/login", handleLogin);
+
+  // POST /auth/logout — butuh token
+  app.post("/auth/logout", { preHandler: authenticate }, handleLogout);
+};

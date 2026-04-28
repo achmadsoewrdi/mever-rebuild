@@ -1,10 +1,10 @@
 import { FastifyInstance } from "fastify";
-import { healtController } from "./health.controller";
+import { healthCheck } from "./health.controller";
 
-class HealthRoutes {
-  async register(app: FastifyInstance): Promise<void> {
-    app.get("/health", healtController.check.bind(healtController));
-  }
-}
-
-export const healthRoutes = new HealthRoutes();
+// ============================================
+//  ROUTES: Health
+// ============================================
+export const registerHealthRoutes = async (app: FastifyInstance): Promise<void> => {
+  // GET /health — tanpa autentikasi
+  app.get("/health", healthCheck);
+};

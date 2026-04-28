@@ -1,37 +1,25 @@
 import { FastifyInstance } from "fastify";
-import { videosController } from "./videos.controller";
+import {
+  handleListVideos,
+  handleGetVideoById,
+  handleRequestUpload,
+  handleConfirmUpload,
+} from "./videos.controller";
 import { authenticate } from "../../middlewares/authenticate";
 
-class VideoRoutes {
-  async register(app: FastifyInstance): Promise<void> {
-    // get /videos menampilkan list
-    app.get(
-      "/videos",
-      { preHandler: authenticate },
-      videosController.list.bind(videosController),
-    );
+// ============================================
+//  ROUTES: Videos
+// ============================================
+export const registerVideosRoutes = async (app: FastifyInstance): Promise<void> => {
+  // GET /videos — daftar video (butuh login)
+  app.get("/videos", { preHandler: authenticate }, handleListVideos);
 
-    // get /videos/:id menampilkan detail video
-    app.get(
-      "/videos/:id",
-      { preHandler: authenticate },
-      videosController.getById.bind(videosController),
-    );
+  // GET /videos/:id — detail video (butuh login)
+  app.get("/videos/:id", { preHandler: authenticate }, handleGetVideoById);
 
-    // post /videos/request-upload
-    app.post(
-      "/videos/request-upload",
-      { preHandler: authenticate },
-      videosController.requestUpload.bind(videosController),
-    );
+  // POST /videos/request-upload — minta presigned URL (butuh login)
+  app.post("/videos/request-upload", { preHandler: authenticate }, handleRequestUpload);
 
-    // post /videos/:id/confirm
-    app.post(
-      "/videos/:id/confirm",
-      { preHandler: authenticate },
-      videosController.confirmUpload.bind(videosController),
-    );
-  }
-}
-
-export const videosRoutes = new VideoRoutes();
+  // POST /videos/:id/confirm — konfirmasi upload selesai (butuh login)
+  app.post("/videos/:id/confirm", { preHandler: authenticate }, handleConfirmUpload);
+};
