@@ -5,3 +5,4 @@ backend/dist
 transcoder/.env
 transcoder/node_modules
 transcoder/dist
+dbschemaanalisys.md
