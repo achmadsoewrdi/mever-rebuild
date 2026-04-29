@@ -50,7 +50,7 @@
 			for={id}
 			class={cn(
 				'cursor-pointer text-sm font-semibold transition-colors select-none',
-				'text-slate-700 dark:text-slate-800',
+				'text-slate-700 dark:text-text-main',
 				disabled && 'cursor-not-allowed opacity-50'
 			)}
 		>

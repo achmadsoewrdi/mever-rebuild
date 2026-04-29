@@ -12,10 +12,7 @@
 
 	// Menggabungkan props untuk button dan anchor
 	type Props = BaseProps &
-		(
-			| (HTMLButtonAttributes & { href?: never })
-			| (HTMLAnchorAttributes & { href: string })
-		);
+		((HTMLButtonAttributes & { href?: never }) | (HTMLAnchorAttributes & { href: string }));
 
 	let {
 		variant = 'primary',
@@ -52,7 +49,7 @@
 		sizes[size],
 		className
 	)}
-	{...rest as any}
+	{...rest}
 >
 	{@render children()}
 </svelte:element>
