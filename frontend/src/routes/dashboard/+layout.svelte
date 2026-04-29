@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Navbar from '$lib/components/layout/Navbar.svelte';
+	import Sidebar from '$lib/components/layout/Sidebar.svelte'; // 1. Import Sidebar
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -11,6 +12,9 @@
 		<Navbar userName={data.user?.name} userInitials={data.user?.initials} />
 	</div>
 	<div class="flex flex-1 overflow-hidden">
+		<!-- 2. Tambahkan Sidebar di sini -->
+		<Sidebar />
+
 		<main class="flex-1 overflow-y-auto p-6">
 			{#if children}
 				{@render children()}
