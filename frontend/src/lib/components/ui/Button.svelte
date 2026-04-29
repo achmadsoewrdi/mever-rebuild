@@ -1,18 +1,27 @@
 <script lang="ts">
 	import { cn } from '$lib/utils/cn';
 	import type { Snippet } from 'svelte';
-	import type { HTMLButtonAttributes } from 'svelte/elements';
+	import type { HTMLButtonAttributes, HTMLAnchorAttributes } from 'svelte/elements';
 
-	interface Props extends HTMLButtonAttributes {
+	type BaseProps = {
 		variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
 		size?: 'default' | 'sm' | 'lg' | 'icon';
 		children: Snippet;
-	}
+		class?: string;
+	};
+
+	// Menggabungkan props untuk button dan anchor
+	type Props = BaseProps &
+		(
+			| (HTMLButtonAttributes & { href?: never })
+			| (HTMLAnchorAttributes & { href: string })
+		);
 
 	let {
 		variant = 'primary',
 		size = 'default',
 		class: className,
+		href,
 		children,
 		...rest
 	}: Props = $props();
@@ -34,14 +43,16 @@
 	};
 </script>
 
-<button
+<svelte:element
+	this={href ? 'a' : 'button'}
+	{href}
 	class={cn(
 		'inline-flex items-center justify-center rounded-md text-sm font-semibold transition-all duration-200 focus:ring-2 focus:ring-primary/50 focus:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-50',
 		variants[variant],
 		sizes[size],
 		className
 	)}
-	{...rest}
+	{...rest as any}
 >
 	{@render children()}
-</button>
+</svelte:element>
