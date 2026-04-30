@@ -96,6 +96,7 @@ export const transcodeVideo = async (
   codec: string,
   resolutionHeight: number,
   packager: "hls" | "dash" | "plain",
+  segmentPrefix: string,
   onProgress: (percent: number) => void,
 ): Promise<void> => {
   const bestCodec = await getBestEncoder(codec as any);
@@ -139,7 +140,14 @@ export const transcodeVideo = async (
           .addOption("-hls_list_size", "0")
           .addOption("-f", "hls");
       } else if (packager === "dash") {
-        command = command.addOption("-f", "dash");
+        command = command
+          .addOption("-use_template", "1")
+          .addOption("-use_timeline", "1")
+          .addOption("-seg_duration", "10")
+          // Gunakan prefix agar tidak berantakan di root
+          .addOption("-init_seg_name", `${segmentPrefix}-init-stream$RepresentationID$.$ext$`)
+          .addOption("-media_seg_name", `${segmentPrefix}-chunk-stream$RepresentationID$-$Number%05d$.$ext$`)
+          .addOption("-f", "dash");
       } else {
         command = command.addOption("-f", "mp4");
       }

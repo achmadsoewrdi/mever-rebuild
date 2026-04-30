@@ -61,14 +61,14 @@
 					{video.title}
 				</h3>
 
-				<!-- Tags Kustom -->
+				<!-- Tags Kustom (LOGIKA OTOMATIS AKTIF DISINI) -->
 				<div class="mt-3 flex flex-wrap gap-2">
 					{#each assetManager.uniqueCodecs as codec, id (id)}
-						<Tag label={codec} variant={VideoAssetManager.getTagVariant(codec)} />
+						<Tag label={codec} />
 					{/each}
 
 					{#each assetManager.uniqueFormats as format, id (id)}
-						<Tag label={format} variant={VideoAssetManager.getTagVariant(format)} />
+						<Tag label={format} />
 					{/each}
 
 					{#if assetManager.uniqueCodecs.length === 0 && assetManager.uniqueFormats.length === 0}
@@ -98,7 +98,6 @@
 	>
 		<!-- Kiri: Thumbnail, Judul, Tags -->
 		<div class="flex items-center gap-5">
-			<!-- Thumbnail Kotak Kecil -->
 			<div
 				class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-bg-surface shadow-sm ring-1 ring-border-base"
 			>
@@ -116,7 +115,6 @@
 				{/if}
 			</div>
 
-			<!-- Info -->
 			<div class="flex flex-col gap-2">
 				<h3
 					class="text-base font-semibold text-text-main transition-colors group-hover:text-primary"
@@ -125,10 +123,10 @@
 				</h3>
 				<div class="flex flex-wrap gap-1.5">
 					{#each assetManager.uniqueCodecs as codec, id (id)}
-						<Tag label={codec} variant={VideoAssetManager.getTagVariant(codec)} />
+						<Tag label={codec} />
 					{/each}
 					{#each assetManager.uniqueFormats as format, id (id)}
-						<Tag label={format} variant={VideoAssetManager.getTagVariant(format)} />
+						<Tag label={format} />
 					{/each}
 					{#if assetManager.uniqueCodecs.length === 0 && assetManager.uniqueFormats.length === 0}
 						<span class="text-[10px] text-text-muted italic">Processing...</span>
@@ -137,7 +135,6 @@
 			</div>
 		</div>
 
-		<!-- Kanan: Size & Resolusi -->
 		<div class="flex flex-col items-end gap-1.5 font-mono">
 			<span class="text-sm font-semibold text-text-sub">
 				{formatBytes(video.fileSizeBytes || 0)}

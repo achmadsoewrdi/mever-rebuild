@@ -8,6 +8,8 @@ export type CreateVideoData = {
   sourcePath: string;
   originalName: string;
   status: "uploading" | "queued" | "processing" | "ready" | "failed";
+  targetCodec?: "h264" | "h265" | "hevc" | "vp9" | "av1" | "vp8";
+  targetProtocol?: "hls" | "dash" | "plain";
 };
 
 export type CreateAssetData = {

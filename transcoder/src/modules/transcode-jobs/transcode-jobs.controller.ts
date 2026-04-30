@@ -36,6 +36,24 @@ import {
 } from "./transcode-jobs.repository";
 
 // =================================================================
+// HELPER: Cache Invalidation (Sinkron dengan Backend)
+// =================================================================
+const invalidateVideosCache = async (videoId?: string) => {
+  try {
+    const keys = await redisMain.keys("cache:videos:*");
+    if (keys.length > 0) {
+      await redisMain.del(keys);
+    }
+    if (videoId) {
+      await redisMain.del(`cache:video:${videoId}`);
+    }
+    console.log("[CACHE INVALIDATED] Berhasil menghapus cache video");
+  } catch (err) {
+    console.error("Gagal menghapus cache dari transcoder:", err);
+  }
+};
+
+// =================================================================
 // HELPER: Membaca resolusi asli video menggunakan FFprobe
 // =================================================================
 
@@ -122,13 +140,17 @@ export const listenUploadQueue = async () => {
         await updateVideoStatus(videoData.id, "queued");
       }
 
+      // Hapus cache agar status 'queued' langsung terlihat
+      await invalidateVideosCache(videoData.id);
+
       // ---------------------------------------------------------------
       // Siapkan direktori sementara untuk menyimpan file lokal
       // ---------------------------------------------------------------
       const tempDir = path.join(__dirname, "../../../temp");
       await fs.mkdir(tempDir, { recursive: true });
 
-      const localSourcePath = path.join(tempDir, `${slug}-source.mp4`);
+      // Gunakan videoId agar UNIK dan tidak tabrakan jika ada slug yang sama
+      const localSourcePath = path.join(tempDir, `${videoData.id}-source.mp4`);
 
       // ---------------------------------------------------------------
       // Unduh video asli dari bucket MinIO ke penyimpanan lokal
@@ -186,10 +208,13 @@ export const listenUploadQueue = async () => {
       const targetResolutions = getResolutionByRule(height);
 
       // ---------------------------------------------------------------
-      // Buat data job render untuk setiap resolusi target
+      // Tentukan Codec & Packager (Prioritas: User Choice > Default Env)
       // ---------------------------------------------------------------
-      const codec = env.DEFAULT_CODEC;
-      const packager = env.DEFAULT_PACKAGER;
+      const codec = videoData.targetCodec || env.DEFAULT_CODEC;
+      // Jika user tidak memilih protocol, gunakan getProtocol untuk menentukan otomatis berdasarkan codec
+      const packager = videoData.targetProtocol || getProtocol(codec, env.DEFAULT_PACKAGER);
+
+      console.log(`[UPLOAD WORKER] Menggunakan Codec: ${codec} | Protocol: ${packager}`);
 
       // Tentukan ekstensi file berdasarkan jenis packager
       const extension =
@@ -283,9 +308,12 @@ export const listenTranscodeQueue = async (workerId: string) => {
       currentLocalSourcePath = jobData.localSourcePath;
 
       console.log(
-        `\n[${workerId}] Memulai render — Job: ${jobId} | Resolusi: ${resolutionHeight}p`,
+        `\n[${workerId}] Memulai render — Job: ${jobId} | Resolusi: ${resolutionName}`,
       );
       await updateJobStatus(jobId, "processing", workerId);
+      
+      // Invalidate cache agar status 'processing' terlihat di dashboard
+      await invalidateVideosCache(videoId);
 
       // ---------------------------------------------------------------
       // Tentukan path file sumber (source video)
@@ -296,15 +324,13 @@ export const listenTranscodeQueue = async (workerId: string) => {
       try {
         // Cek keberadaan file lokal — jika ada, skip proses unduh
         await fs.access(localSourcePath);
-        console.log(
-          `[${workerId}] File source tersedia di lokal, melewati proses unduh.`,
-        );
       } catch {
         // File tidak ditemukan di lokal — unduh dari MinIO sebagai fallback
         console.log(
           `[${workerId}] File source tidak ditemukan di lokal, mengunduh dari MinIO...`,
         );
-        localSourcePath = path.join(tempDir, `${jobId}-source.mp4`);
+        // Fallback tetap gunakan videoId agar konsisten
+        localSourcePath = path.join(tempDir, `${videoId}-source.mp4`);
         await downloadFromMinio(
           env.MINIO_BUCKET_SOURCE,
           sourcePath,
@@ -323,13 +349,14 @@ export const listenTranscodeQueue = async (workerId: string) => {
         codec,
         resolutionHeight,
         packager,
+        `${slug}-${resolutionName}`, // segmentPrefix
         async (percent: number) => {
           await updateJobProgress(jobId, percent).catch(() => null);
         },
       );
 
       // ---------------------------------------------------------------
-      // LANGKAH 3: Unggah hasil render (.m3u8) ke bucket publik MinIO
+      // LANGKAH 3: Unggah hasil render (manifest) ke bucket publik MinIO
       // ---------------------------------------------------------------
       const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
       await uploadToMinio(
@@ -338,21 +365,25 @@ export const listenTranscodeQueue = async (workerId: string) => {
         minioOutputPath,
       );
 
-      if (packager === "hls") {
+      // ---------------------------------------------------------------
+      // LANGKAH 4: Unggah file segmen (HLS/DASH) ke MinIO & Bersihkan
+      // ---------------------------------------------------------------
+      if (packager === "hls" || packager === "dash") {
         const files = await fs.readdir(tempDir);
+        const segmentPrefix = `${slug}-${resolutionName}`;
 
         for (const file of files) {
-          // Filter hanya file segmen .ts milik job/resolusi ini
-          if (
-            file.startsWith(`${slug}-${resolutionName}`) &&
-            file.endsWith(".ts")
-          ) {
-            const minioTsPath = `videos/${slug}/${resolutionName}/${file}`;
+          // Identifikasi apakah file ini adalah bagian dari streaming (ts untuk HLS, chunk/init untuk DASH)
+          const isHlsSegment = packager === "hls" && file.startsWith(segmentPrefix) && file.endsWith(".ts");
+          const isDashSegment = packager === "dash" && file.startsWith(segmentPrefix) && (file.includes("chunk-stream") || file.includes("init-stream"));
+
+          if (isHlsSegment || isDashSegment) {
+            const minioSegPath = `videos/${slug}/${resolutionName}/${file}`;
 
             await uploadToMinio(
               path.join(tempDir, file),
               env.MINIO_BUCKET_PUBLIC,
-              minioTsPath,
+              minioSegPath,
             );
 
             // Hapus segmen dari lokal setelah berhasil diunggah
@@ -391,7 +422,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
       const totalCount = videoStats.totalJobs ?? totalJobs;
 
       console.log(
-        `[${workerId}] Render ${resolutionHeight}p selesai! (${doneCount}/${totalCount})`,
+        `[${workerId}] Render ${resolutionName} selesai! (${doneCount}/${totalCount})`,
       );
 
       // Cek apakah semua resolusi untuk video ini sudah selesai dirender
@@ -399,6 +430,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
         console.log(`\n[${workerId}] Semua resolusi selesai untuk video ini!`);
 
         await updateVideoStatus(videoId, "ready");
+        await invalidateVideosCache(videoId);
 
         await fs.unlink(localSourcePath).catch(() => null);
 
@@ -419,17 +451,14 @@ export const listenTranscodeQueue = async (workerId: string) => {
         if (currentSlug) {
           const files = await fs.readdir(tempDir);
           for (const file of files) {
+            // Hapus file output/segmen yang berhubungan dengan slug ini
             if (file.startsWith(currentSlug)) {
               await fs.unlink(path.join(tempDir, file)).catch(() => null);
             }
           }
           console.log(
-            `[${workerId}] File temp sisa dari job yang gagal berhasil dibersihkan.`,
+            `[${workerId}] File temp (output/segmen) dari job yang gagal berhasil dibersihkan.`,
           );
-        }
-        // Hapus file source jika ada
-        if (currentLocalSourcePath) {
-          await fs.unlink(currentLocalSourcePath).catch(() => null);
         }
       } catch {
         // abaikan error cleanup

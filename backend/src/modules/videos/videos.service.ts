@@ -61,6 +61,8 @@ export const requestUpload = async (userId: string, input: RequestUploadInput) =
     slug,
     originalName: input.originalName,
     fileSizeBytes: input.fileSizeBytes, // Sekarang opsional
+    targetCodec: input.targetCodec as any,
+    targetProtocol: input.targetProtocol as any,
     sourcePath: objectName,
   });
 

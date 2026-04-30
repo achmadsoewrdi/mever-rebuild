@@ -27,10 +27,12 @@ export const registerSchema = z.object({
  */
 
 export const uploadSchema = z.object({
-	title: z.string().min(5, 'Judul minimal 5 karakter').max(100, 'Judul maksimal 100 karakter'),
-	description: z.string().max(500, 'Deskripsi maksimal 500 karakter').optional()
+	title: z.string().min(3, 'Judul minimal 3 karakter').max(100, 'Judul maksimal 100 karakter'),
+	description: z.string().max(500, 'Deskripsi maksimal 500 karakter').optional(),
+	targetCodec: z.enum(['h264', 'h265', 'hevc', 'vp9', 'av1', 'vp8']).optional(),
+	targetProtocol: z.enum(['hls', 'dash', 'plain']).optional()
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
-export type UploadInput = z.infer<typeof uploadSchema>;
+export type UploadSchema = z.infer<typeof uploadSchema>;

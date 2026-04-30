@@ -11,8 +11,6 @@ export class VideoAssetManager {
 	constructor(getVideo: () => Video) {
 		this.getVideo = getVideo;
 
-		// Svelte 5 mengizinkan $effect di dalam class .svelte.ts
-		// Efek ini akan otomatis dijalankan saat class di-instansiasi di dalam komponen
 		$effect(() => {
 			const currentVideo = this.video;
 			if (currentVideo && (!currentVideo.assets || currentVideo.assets.length === 0)) {
@@ -32,7 +30,6 @@ export class VideoAssetManager {
 		return this.getVideo();
 	}
 
-	// Logika Reaktif (Setara dengan $derived)
 	get assets() {
 		return this.video?.assets?.length ? this.video.assets : this.fetchedAssets;
 	}

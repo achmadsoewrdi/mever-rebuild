@@ -3,27 +3,34 @@
 
 	interface Props {
 		label: string;
-		variant?: 'dash' | 'mp4' | 'h264' | 'hevc' | 'default';
+		variant?: 'dash' | 'mp4' | 'h264' | 'hevc' | 'vp9' | 'webm' | 'default';
 		class?: string;
 	}
 
-	let { label, variant = 'default', class: className }: Props = $props();
+	let { label, variant, class: className }: Props = $props();
 
-	// Map variant ke warna spesifik (Clean & Scalable)
 	const variants = {
 		default:
-			'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700',
-		dash: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20',
-		mp4: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20',
-		h264: 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20',
-		hevc: 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20'
+			'bg-slate-500/10 text-slate-500 border-slate-500/20 dark:bg-slate-400/10 dark:text-slate-400 dark:border-slate-400/20',
+		dash: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400',
+		mp4: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400',
+		h264: 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400',
+		hevc: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400',
+		vp9: 'bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400',
+		webm: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400'
 	};
+
+	const activeVariant = $derived(
+		variants[variant as keyof typeof variants] ||
+			variants[label.toLowerCase() as keyof typeof variants] ||
+			variants.default
+	);
 </script>
 
 <div
 	class={cn(
-		'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold transition-colors',
-		variants[variant],
+		'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-bold shadow-sm transition-all',
+		activeVariant,
 		className
 	)}
 >

@@ -7,6 +7,7 @@ import type {
 	UploadResponse
 } from '$lib/types/video.types';
 import type { ApiResponse, PaginatedResponse } from '$lib/types/api.types';
+import axios from 'axios';
 
 /**
  * Video API Service
@@ -57,5 +58,21 @@ export const videoApi = {
 	 */
 	confirmUpload: async (id: string): Promise<ApiResponse<Video>> => {
 		return apiClient.post(`/videos/${id}/confirm`);
+	},
+
+	uploadFileToStorage: async (
+		url: string,
+		file: File,
+		onProgress: (percent: number) => void
+	): Promise<void> => {
+		await axios.put(url, file, {
+			headers: { 'Content-Type': file.type },
+			onUploadProgress: (progressEvent) => {
+				if (progressEvent.total) {
+					const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+					onProgress(percent);
+				}
+			}
+		});
 	}
 };

@@ -34,6 +34,8 @@ export const requestUploadSchema = z.object({
   description: z.string().optional(),
   originalName: z.string().min(1, "Nama file asli dibutuhkan misal: Video.mp4"),
   fileSizeBytes: z.number().positive("ukuran file harus angka positif").nullish(),
+  targetCodec: z.enum(["h264", "h265", "vp9", "av1", "vp8"]).optional(),
+  targetProtocol: z.enum(["hls", "dash", "plain"]).optional(),
 });
 
 export type RequestUploadInput = z.infer<typeof requestUploadSchema>;

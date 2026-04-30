@@ -9,7 +9,7 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
-import { videoStatusEnum } from "./enums";
+import { videoStatusEnum, codecTypeEnum, protocolTypeEnum } from "./enums";
 
 export const videos = pgTable("videos", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -20,6 +20,8 @@ export const videos = pgTable("videos", {
   originalName: varchar("original_name", { length: 255 }),
   sourcePath: varchar("source_path", { length: 500 }),
   status: videoStatusEnum("status").default("uploading").notNull(),
+  targetCodec: codecTypeEnum("target_codec"),
+  targetProtocol: protocolTypeEnum("target_protocol"),
   thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
   durationSeconds: integer("duration_seconds"),
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),

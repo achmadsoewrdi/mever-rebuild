@@ -1,7 +1,17 @@
 /**
  * Status siklus hidup video
  */
-export type VideoStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type VideoStatus = 'uploading' | 'queued' | 'processing' | 'ready' | 'failed';
+
+/**
+ * Jenis Codec yang didukung oleh Transcoder.
+ */
+export type VideoCodec = 'h264' | 'h265' | 'hevc' | 'vp9' | 'av1' | 'vp8';
+
+/**
+ * Protokol streaming yang tersedia untuk distribusi video.
+ */
+export type VideoProtocol = 'hls' | 'dash' | 'plain';
 
 /**
  * interface utama video
@@ -9,12 +19,21 @@ export type VideoStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface Video {
 	id: string;
+	uploadedBy: string | null;
 	title: string;
-	description: string;
-	thumbnailUrl: string;
-	duration?: number;
-	views: number;
-	fileSizeBytes?: number;
+	description: string | null;
+	slug: string;
+	originalName: string | null;
+	sourcePath: string | null;
+	status: VideoStatus;
+	thumbnailUrl: string | null;
+	durationSeconds: number | null;
+	fileSizeBytes: number | null;
+	targetCodec: VideoCodec | null;
+	targetProtocol: VideoProtocol | null;
+	totalJobs: number;
+	doneJobs: number;
+	publishedAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 	assets?: VideoAsset[];
@@ -39,9 +58,12 @@ export interface VideoAsset {
 	videoId: string;
 	codec: string;
 	format: string;
+	protocol: VideoProtocol;
 	resolution: string;
-	sizeBytes: number;
-	downloadUrl?: string;
+	bitrateKbps: number | null;
+	manifestUrl: string | null;
+	fileSizeBytes: number | null;
+	createdAt: string;
 }
 
 /**
@@ -50,9 +72,11 @@ export interface VideoAsset {
 
 export interface RequestUploadDto {
 	title: string;
-	description: string;
+	description?: string;
 	originalName: string;
-	fileSizeBytes: number;
+	fileSizeBytes?: number;
+	targetCodec?: VideoCodec;
+	targetProtocol?: VideoProtocol;
 }
 
 /**

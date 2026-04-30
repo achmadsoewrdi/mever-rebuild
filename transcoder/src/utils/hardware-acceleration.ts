@@ -83,7 +83,7 @@ export const detectHardwareSupport = async (): Promise<HardwareSupport> => {
  * Prioritas: NVENC > QSV > AMF > CPU fallback
  */
 export const getBestEncoder = async (
-  codec: "h264" | "h265" | "hevc",
+  codec: "h264" | "h265" | "hevc" | "vp9",
 ): Promise<string> => {
   const support = await detectHardwareSupport();
 
@@ -99,6 +99,10 @@ export const getBestEncoder = async (
     if (support.qsv) return "hevc_qsv";
     if (support.amf) return "hevc_amf";
     return "libx265";
+  }
+
+  if (codec === "vp9") {
+    return "libvpx-vp9";
   }
 
   return codec;
