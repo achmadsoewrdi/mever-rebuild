@@ -14,8 +14,10 @@ export interface Video {
 	thumbnailUrl: string;
 	duration?: number;
 	views: number;
+	fileSizeBytes?: number;
 	createdAt: string;
 	updatedAt: string;
+	assets?: VideoAsset[];
 }
 
 /**

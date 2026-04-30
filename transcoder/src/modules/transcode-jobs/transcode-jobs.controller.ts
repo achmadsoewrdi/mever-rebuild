@@ -50,7 +50,9 @@ const getVideoMetadata = (
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) return reject(err);
 
-      const videoStream = metadata.streams.find((s) => s.codec_type === "video");
+      const videoStream = metadata.streams.find(
+        (s) => s.codec_type === "video",
+      );
 
       if (!videoStream || !videoStream.height) {
         return reject(new Error("Metadata video tidak valid."));
@@ -161,7 +163,7 @@ export const listenUploadQueue = async () => {
       );
       await updateThumbnailUrl(
         videoData.id,
-        `${env.MINIO_ENDPOINT}/${env.MINIO_BUCKET_PUBLIC}/${thumbnailMinioPath}`,
+        `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${thumbnailMinioPath}`,
       );
 
       // Hapus file thumbnail dari lokal setelah berhasil diunggah ke MinIO
@@ -361,7 +363,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
         format: packager === "hls" ? "mp4" : "webm",
         protocol,
         resolution: resolutionName,
-        manifestUrl: `${env.MINIO_ENDPOINT}/${env.MINIO_BUCKET_PUBLIC}/${minioOutputPath}`,
+        manifestUrl: `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${minioOutputPath}`,
       });
 
       // Tandai job ini sebagai selesai di database
@@ -412,7 +414,9 @@ export const listenTranscodeQueue = async (workerId: string) => {
               await fs.unlink(path.join(tempDir, file)).catch(() => null);
             }
           }
-          console.log(`[${workerId}] File temp sisa dari job yang gagal berhasil dibersihkan.`);
+          console.log(
+            `[${workerId}] File temp sisa dari job yang gagal berhasil dibersihkan.`,
+          );
         }
         // Hapus file source jika ada
         if (currentLocalSourcePath) {
