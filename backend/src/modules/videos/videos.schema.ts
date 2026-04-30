@@ -33,7 +33,7 @@ export const requestUploadSchema = z.object({
   title: z.string().min(1, "Judul tidak boleh kosong"),
   description: z.string().optional(),
   originalName: z.string().min(1, "Nama file asli dibutuhkan misal: Video.mp4"),
-  fileSizeBytes: z.number().positive("ukuran file harus angka positif"),
+  fileSizeBytes: z.number().positive("ukuran file harus angka positif").nullish(),
 });
 
 export type RequestUploadInput = z.infer<typeof requestUploadSchema>;

@@ -17,6 +17,7 @@ import {
 
 import {
   createVideo,
+  findVideoBySourcePath,
   updateVideoStatus,
   updateVideoTotalJobs,
   updateThumbnailUrl,
@@ -103,15 +104,23 @@ export const listenUploadQueue = async () => {
       );
 
       // ---------------------------------------------------------------
-      // Buat catatan awal video di database dengan status 'queued'
+      // Cari video di database berdasarkan sourcePath
+      // Karena Backend sudah membuat record sebelum upload
       // ---------------------------------------------------------------
-      const videoData = await createVideo({
-        title: parsedName.baseName,
-        slug: slug,
-        sourcePath: rawPath,
-        originalName: parsedName.fileName,
-        status: "queued",
-      });
+      let videoData = await findVideoBySourcePath(rawPath);
+      
+      if (!videoData) {
+        console.log(`[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`);
+        videoData = await createVideo({
+          title: parsedName.baseName,
+          slug: slug,
+          sourcePath: rawPath,
+          originalName: parsedName.fileName,
+          status: "queued",
+        });
+      } else {
+        await updateVideoStatus(videoData.id, "queued");
+      }
 
       // ---------------------------------------------------------------
       // Siapkan direktori sementara untuk menyimpan file lokal

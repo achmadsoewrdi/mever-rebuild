@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Video, VideoAsset } from '$lib/types/video.types';
+	import type { Video } from '$lib/types/video.types';
 	import { Play } from 'lucide-svelte';
 	import Tag from '../ui/Tag.svelte';
 	import { formatBytes, formatDate } from '$lib/utils/format';
-	import { videoApi } from '$lib/api/videos.api';
+	import { VideoAssetManager } from '$lib/stores/video-assets.svelte';
 
 	interface Props {
 		video: Video;
@@ -11,52 +11,14 @@
 	}
 	let { video, viewMode = 'grid' }: Props = $props();
 	let imageError = $state(false);
-
-	let fetchedAssets = $state<VideoAsset[]>([]);
-	let assets = $derived(video.assets?.length ? video.assets : fetchedAssets);
-
-	$effect(() => {
-		if (!video.assets || video.assets.length === 0) {
-			videoApi
-				.getVideoAssets(video.id)
-				.then((res) => {
-					if (res.data) {
-						fetchedAssets = res.data;
-					}
-				})
-				.catch((err) => console.error('Gagal memuat assets:', err));
-		}
-	});
-
-	let uniqueCodecs = $derived([...new Set(assets.map((a) => a.codec))]);
-	let uniqueFormats = $derived([...new Set(assets.map((a) => a.format))]);
-
-	// Menentukan resolusi tertinggi untuk badge
-	let highestResolution = $derived(
-		(() => {
-			if (assets.length === 0) return null;
-			const resList = assets.map((a) => a.resolution);
-			if (resList.includes('2160p') || resList.includes('4K')) return '4K';
-			if (resList.includes('1440p')) return '1440p';
-			if (resList.includes('1080p')) return '1080p';
-			if (resList.includes('720p')) return '720p';
-			if (resList.includes('480p')) return '480p';
-			return resList[0] || null;
-		})()
-	);
-
-	type TagVariant = 'dash' | 'mp4' | 'h264' | 'hevc' | 'default';
-	function getTagVariant(label: string): TagVariant {
-		const valid: TagVariant[] = ['dash', 'mp4', 'h264', 'hevc'];
-		return valid.includes(label as TagVariant) ? (label as TagVariant) : 'default';
-	}
+	let assetManager = new VideoAssetManager(() => video);
 </script>
 
 {#if viewMode === 'grid'}
 	<!-- GRID VIEW -->
 	<a
 		href="/dashboard/videos/{video.id}"
-		class="group flex w-full flex-col overflow-hidden rounded-[20px] bg-bg-secondary shadow-sm ring-1 ring-border-base transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-primary/50"
+		class="group flex w-full flex-col overflow-hidden rounded-md bg-bg-secondary shadow-sm ring-1 ring-border-base transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-primary/50"
 	>
 		<!-- Bagian Thumbnail Atas -->
 		<div class="relative aspect-video w-full overflow-hidden bg-bg-surface">
@@ -83,11 +45,11 @@
 			</div>
 
 			<!-- Badge Resolusi Tertinggi Dinamis -->
-			{#if highestResolution}
+			{#if assetManager.highestResolution}
 				<div
 					class="absolute right-3 bottom-3 rounded-sm bg-black/80 px-2 py-0.5 text-xs font-bold tracking-wider text-white shadow-sm dark:bg-black/90"
 				>
-					{highestResolution}
+					{assetManager.highestResolution}
 				</div>
 			{/if}
 		</div>
@@ -101,15 +63,15 @@
 
 				<!-- Tags Kustom -->
 				<div class="mt-3 flex flex-wrap gap-2">
-					{#each uniqueCodecs as codec, id (id)}
-						<Tag label={codec} variant={getTagVariant(codec)} />
+					{#each assetManager.uniqueCodecs as codec, id (id)}
+						<Tag label={codec} variant={VideoAssetManager.getTagVariant(codec)} />
 					{/each}
 
-					{#each uniqueFormats as format, id (id)}
-						<Tag label={format} variant={getTagVariant(format)} />
+					{#each assetManager.uniqueFormats as format, id (id)}
+						<Tag label={format} variant={VideoAssetManager.getTagVariant(format)} />
 					{/each}
 
-					{#if uniqueCodecs.length === 0 && uniqueFormats.length === 0}
+					{#if assetManager.uniqueCodecs.length === 0 && assetManager.uniqueFormats.length === 0}
 						<span class="text-xs text-text-muted italic">Processing assets...</span>
 					{/if}
 				</div>
@@ -162,13 +124,13 @@
 					{video.title}
 				</h3>
 				<div class="flex flex-wrap gap-1.5">
-					{#each uniqueCodecs as codec, id (id)}
-						<Tag label={codec} variant={getTagVariant(codec)} />
+					{#each assetManager.uniqueCodecs as codec, id (id)}
+						<Tag label={codec} variant={VideoAssetManager.getTagVariant(codec)} />
 					{/each}
-					{#each uniqueFormats as format, id (id)}
-						<Tag label={format} variant={getTagVariant(format)} />
+					{#each assetManager.uniqueFormats as format, id (id)}
+						<Tag label={format} variant={VideoAssetManager.getTagVariant(format)} />
 					{/each}
-					{#if uniqueCodecs.length === 0 && uniqueFormats.length === 0}
+					{#if assetManager.uniqueCodecs.length === 0 && assetManager.uniqueFormats.length === 0}
 						<span class="text-[10px] text-text-muted italic">Processing...</span>
 					{/if}
 				</div>
@@ -180,9 +142,9 @@
 			<span class="text-sm font-semibold text-text-sub">
 				{formatBytes(video.fileSizeBytes || 0)}
 			</span>
-			{#if highestResolution}
+			{#if assetManager.highestResolution}
 				<span class="text-[11px] font-medium text-text-muted">
-					{highestResolution}
+					{assetManager.highestResolution}
 				</span>
 			{/if}
 		</div>

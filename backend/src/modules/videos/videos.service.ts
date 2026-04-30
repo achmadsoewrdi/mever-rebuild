@@ -37,6 +37,19 @@ export const getVideoById = async (id: string) => {
   return video;
 };
 
+// Fungsi helper untuk menghapus cache list videos
+const invalidateVideosCache = async () => {
+  try {
+    const keys = await redisCache.keys("cache:videos:*");
+    if (keys.length > 0) {
+      await redisCache.del(keys);
+      console.log("[CACHE INVALIDATED] Berhasil menghapus cache list videos");
+    }
+  } catch (err) {
+    console.error("Gagal menghapus cache:", err);
+  }
+};
+
 export const requestUpload = async (userId: string, input: RequestUploadInput) => {
   const slug = generateSlug(input.title);
   const objectName = `raw/${userId}/${slug}.mp4`;
@@ -47,9 +60,12 @@ export const requestUpload = async (userId: string, input: RequestUploadInput) =
     description: input.description,
     slug,
     originalName: input.originalName,
-    fileSizeBytes: input.fileSizeBytes,
+    fileSizeBytes: input.fileSizeBytes, // Sekarang opsional
     sourcePath: objectName,
   });
+
+  // Hapus cache list videos karena ada video baru
+  await invalidateVideosCache();
 
   const presignedUrl = await minioClient.presignedPutObject(
     env.MINIO_BUCKET_SOURCE,
@@ -65,4 +81,8 @@ export const requestUpload = async (userId: string, input: RequestUploadInput) =
 
 export const confirmUpload = async (videoId: string): Promise<void> => {
   await updateVideoStatus(videoId, "ready");
+  
+  // Hapus cache list videos dan cache detail video
+  await invalidateVideosCache();
+  await redisCache.del(`cache:video:${videoId}`);
 };

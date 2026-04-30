@@ -29,20 +29,48 @@ export const createVideo = async (data: CreateVideoData) => {
   return result[0];
 };
 
-export const updateVideoStatus = async (id: string, status: CreateVideoData["status"]) => {
-  await db.update(videos).set({ status, updatedAt: new Date() }).where(eq(videos.id, id));
+export const findVideoBySourcePath = async (sourcePath: string) => {
+  const result = await db
+    .select()
+    .from(videos)
+    .where(eq(videos.sourcePath, sourcePath))
+    .limit(1);
+  return result[0];
+};
+
+export const updateVideoStatus = async (
+  id: string,
+  status: CreateVideoData["status"],
+) => {
+  await db
+    .update(videos)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(videos.id, id));
 };
 
 export const updateVideoTotalJobs = async (id: string, totalJobs: number) => {
-  await db.update(videos).set({ totalJobs, updatedAt: new Date() }).where(eq(videos.id, id));
+  await db
+    .update(videos)
+    .set({ totalJobs, updatedAt: new Date() })
+    .where(eq(videos.id, id));
 };
 
 export const updateThumbnailUrl = async (id: string, url: string) => {
-  await db.update(videos).set({ thumbnailUrl: url, updatedAt: new Date() }).where(eq(videos.id, id));
+  await db
+    .update(videos)
+    .set({ thumbnailUrl: url, updatedAt: new Date() })
+    .where(eq(videos.id, id));
 };
 
-export const updateVideoMetadata = async (id: string, durationSeconds: number, fileSizeBytes: number) => {
-  await db.update(videos).set({ durationSeconds, fileSizeBytes, updatedAt: new Date() }).where(eq(videos.id, id));
+export const updateVideoMetadata = async (
+  id: string,
+  durationSeconds: number,
+  fileSizeBytes: number,
+) => {
+  await db
+    .update(videos)
+    .set({ durationSeconds, fileSizeBytes, updatedAt: new Date() })
+    .where(eq(videos.id, id));
 };
 
 export const incrementDoneJobs = async (id: string) => {

@@ -19,24 +19,30 @@
 {#if isLoading}
 	<!-- STATE 1: LOADING -->
 	<div
-		class="grid gap-6
-			{viewMode === 'grid'
-			? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-			: 'grid-cols-1 gap-y-4'}"
+		class={viewMode === 'grid'
+			? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+			: 'flex flex-col'}
 	>
 		{#each skeletons as id (id)}
-			<div class="flex {viewMode === 'grid' ? 'flex-col' : 'flex-row gap-4'} w-full">
-				<!-- Skeleton Thumbnail -->
-				<Skeleton
-					class="{viewMode === 'grid' ? 'aspect-video w-full' : 'h-28 w-48 shrink-0'} rounded-xl"
-				/>
-
-				<!-- Skeleton Info (Judul & Keterangan) -->
-				<div class="mt-3 flex w-full flex-col gap-2 {viewMode === 'list' ? 'mt-0 py-1' : ''}">
-					<Skeleton class="h-5 w-3/4 rounded-md" />
-					<Skeleton class="h-4 w-1/2 rounded-md" />
+			{#if viewMode === 'grid'}
+				<!-- Loading Grid Card -->
+				<div class="flex w-full flex-col">
+					<Skeleton class="aspect-video w-full rounded-2xl" />
+					<div class="mt-3 flex w-full flex-col gap-2">
+						<Skeleton class="h-5 w-3/4 rounded-md" />
+						<Skeleton class="h-4 w-1/2 rounded-md" />
+					</div>
 				</div>
-			</div>
+			{:else}
+				<!-- Loading List Row -->
+				<div class="flex w-full items-center gap-5 border-b border-border-base p-4">
+					<Skeleton class="h-16 w-16 shrink-0 rounded-xl" />
+					<div class="flex w-full flex-col gap-2 py-1">
+						<Skeleton class="h-5 w-1/3 rounded-md" />
+						<Skeleton class="h-4 w-1/4 rounded-md" />
+					</div>
+				</div>
+			{/if}
 		{/each}
 	</div>
 {:else if videos.length === 0}
@@ -57,8 +63,9 @@
 {:else}
 	<!-- STATE 3: BERISI DATA -->
 	<div
-		class="grid gap-6
-			{viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}"
+		class={viewMode === 'grid'
+			? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+			: 'flex flex-col'}
 	>
 		{#each videos as video (video.id)}
 			<VideoCard {video} {viewMode} />
