@@ -24,7 +24,7 @@
 			placeholder="Search videos..."
 			bind:value={searchQuery}
 			variant="filled"
-			class="h-12 rounded-xl"
+			class="h-12 rounded-xl dark:border-border-base/50 dark:bg-bg-surface"
 		>
 			{#snippet leadingIcon()}
 				<Search size={20} strokeWidth={2} />
@@ -34,14 +34,16 @@
 
 	<!-- Bagian Toggle View Menggunakan Button.svelte -->
 	<div
-		class="flex items-center gap-1 rounded-xl border border-transparent bg-slate-100 p-1 dark:border-slate-800 dark:bg-bg-surface"
+		class="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-border-base/50 dark:bg-bg-surface"
 	>
 		<!-- Tombol Grid -->
 		<Button
 			variant={viewMode === 'grid' ? 'primary' : 'ghost'}
 			size="icon"
 			onclick={() => setView('grid')}
-			class="h-10 w-10 rounded-lg {viewMode === 'grid' ? 'shadow-md' : 'text-slate-400'}"
+			class="h-10 w-10 rounded-lg {viewMode === 'grid'
+				? 'shadow-md'
+				: 'text-slate-400 dark:text-border-base/50'}"
 		>
 			<LayoutGrid size={20} />
 		</Button>
@@ -51,7 +53,9 @@
 			variant={viewMode === 'list' ? 'primary' : 'ghost'}
 			size="icon"
 			onclick={() => setView('list')}
-			class="h-10 w-10 rounded-lg {viewMode === 'list' ? 'shadow-md' : 'text-slate-400'}"
+			class="h-10 w-10 rounded-lg {viewMode === 'list'
+				? 'shadow-md'
+				: 'text-slate-400 dark:text-border-base/50'}"
 		>
 			<List size={20} />
 		</Button>

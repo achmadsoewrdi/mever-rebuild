@@ -34,7 +34,7 @@
 <svelte:window onclick={() => (isDropdownOpen = false)} />
 
 <nav
-	class="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-bg-surface dark:bg-bg-secondary"
+	class="flex h-16 w-full items-center justify-between border-b-2 border-slate-200 bg-white px-6 dark:border-border-base/50 dark:bg-bg-secondary"
 >
 	<!-- Kiri: Logo MEVER (Sesuai import) -->
 	<div class="flex items-center">

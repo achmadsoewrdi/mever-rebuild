@@ -33,7 +33,7 @@
                    hover:border-primary/50
                    focus:ring-4 focus:ring-primary/10 focus:outline-none
                    disabled:cursor-not-allowed disabled:opacity-50
-                   dark:border-slate-700 dark:bg-slate-500/5
+                   dark:border-border-base/50 dark:bg-slate-500/5
                    dark:checked:border-primary dark:checked:bg-primary"
 		/>
 

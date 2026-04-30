@@ -5,12 +5,11 @@
 	// Menggunakan Svelte 5 Props (Runes)
 	interface Props {
 		label: string;
-		count?: number;
 		checked?: boolean;
 		class?: string;
 	}
 
-	let { label, count, checked = $bindable(false), class: className }: Props = $props();
+	let { label, checked = $bindable(false), class: className }: Props = $props();
 </script>
 
 <label
@@ -28,17 +27,10 @@
 		<span
 			class={cn(
 				'text-[13px] font-medium transition-colors',
-				checked ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
+				checked ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-white/50'
 			)}
 		>
 			{label}
 		</span>
 	</div>
-
-	<!-- Tampilkan angka di kanan jika ada -->
-	{#if count !== undefined}
-		<span class="text-[12px] font-bold text-slate-400 dark:text-slate-500">
-			{count}
-		</span>
-	{/if}
 </label>

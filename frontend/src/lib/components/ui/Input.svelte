@@ -61,7 +61,7 @@
 			class={cn(
 				'w-full rounded-md border text-sm shadow-sm transition-all duration-200',
 				'text-slate-900 dark:text-slate-100',
-				'placeholder:text-slate-400 dark:placeholder:text-slate-600',
+				'placeholder:text-slate-400 dark:placeholder:text-border-base/50',
 				'disabled:cursor-not-allowed disabled:opacity-50',
 				'focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none',
 				variant === 'outline'

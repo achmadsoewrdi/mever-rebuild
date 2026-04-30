@@ -48,8 +48,8 @@
 
 /* Selector .dark untuk Dark Mode */
 .dark {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
+  --bg-primary: #131313;
+  --bg-secondary: #222222;
   --bg-surface: #1e1e1e;
   --bg-elevated: #252525;
 
@@ -57,7 +57,7 @@
   --text-secondary: #a0a0a0;
   --text-muted: #666666;
 
-  --border-color: #2a2a2a;
+  --border-color: #6B6B6B;
 }
 
 /* Base body styles menggunakan CSS variables */
