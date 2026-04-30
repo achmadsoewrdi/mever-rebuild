@@ -40,6 +40,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// 3. Auth Guard (Gerbang Keamanan)
+
+	if (event.url.pathname === '/') {
+		throw redirect(303, '/dashboard');
+	}
 	// Jika mau ke /dashboard TAPI belum punya user (belum login)
 	if (event.url.pathname.startsWith('/dashboard')) {
 		if (!event.locals.user) {

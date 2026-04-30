@@ -24,7 +24,7 @@
 			placeholder="Search videos..."
 			bind:value={searchQuery}
 			variant="filled"
-			class="h-12 rounded-xl dark:border-border-base/50 dark:bg-bg-surface"
+			class="h-12 rounded-xl border border-slate-400 dark:border-border-base/50 dark:bg-bg-surface"
 		>
 			{#snippet leadingIcon()}
 				<Search size={20} strokeWidth={2} />

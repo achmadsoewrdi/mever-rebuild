@@ -12,10 +12,9 @@
 		<Navbar userName={data.user?.name} userInitials={data.user?.initials} />
 	</div>
 	<div class="flex flex-1 overflow-hidden">
-		<!-- 2. Tambahkan Sidebar di sini -->
 		<Sidebar />
 
-		<main class="flex-1 overflow-y-auto p-6">
+		<main class="flex-1 overflow-y-auto">
 			{#if children}
 				{@render children()}
 			{/if}

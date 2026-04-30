@@ -4,6 +4,7 @@
 	import { videoApi } from '$lib/api/videos.api';
 	import type { Video } from '$lib/types/video.types';
 	import { toast } from 'svelte-sonner';
+	import { cn } from '$lib/utils/cn';
 
 	let videos = $state<Video[]>([]);
 	let isLoading = $state(true);
@@ -40,17 +41,39 @@
 	});
 </script>
 
-<div class="flex flex-col gap-6 p-2 sm:p-6">
-	<div>
-		<h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-			Video Library
-		</h1>
-		<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-			Kelola dan pantau seluruh aset video milikmu di dalam platform.
-		</p>
+<!-- ... bagian script tetap sama ... -->
+
+<div class="flex flex-col transition-all duration-500">
+	<!-- 1. Sticky Header Section with Blur Effect -->
+	<div
+		class="sticky top-0 z-10 border-b border-border-base bg-bg-secondary/80 px-6 py-1 backdrop-blur-md"
+	>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-2xl font-bold tracking-tight text-text-main">Video Library</h1>
+				<div class="mt-1 flex gap-4 text-[11px] font-medium text-text-muted">
+					<span>13 videos</span>
+					<span>•</span>
+					<span class="font-bold text-rose-500">3 Live Now</span>
+				</div>
+			</div>
+			<!-- Filter & Search terintegrasi di kanan -->
+			<div class="flex items-center gap-4">
+				<VideoFilter bind:searchQuery bind:viewMode />
+			</div>
+		</div>
 	</div>
 
-	<VideoFilter bind:searchQuery bind:viewMode />
-
-	<VideoGrid {videos} {isLoading} {viewMode} />
+	<!-- 2. Kontainer Konten (Dinamis) -->
+	<div
+		class={cn(
+			'transition-all duration-300',
+			viewMode === 'list'
+				? 'w-full bg-bg-secondary' // Full width tanpa margin & tanpa rounded
+				: 'grid gap-6 bg-transparent p-6' // Mode Grid tetap pake padding
+		)}
+	>
+		<!-- Jika ada kategori "LIVE NOW" atau "ON DEMAND" bisa ditambah di VideoGrid -->
+		<VideoGrid {videos} {isLoading} {viewMode} />
+	</div>
 </div>
