@@ -3,7 +3,7 @@
 	import { Button, Input } from '$lib/components/ui/index';
 	import { Upload, CircleCheck, PlayCircle, Loader2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
-	import type { VideoProtocol } from '$lib/types/video.types';
+	import type { VideoProtocol, VideoCodec } from '$lib/types/video.types';
 	import { cn } from '$lib/utils/cn';
 
 	const uploader = new VideoUploader();
@@ -13,14 +13,43 @@
 	let title = $state('');
 	let protocol = $state<VideoProtocol>('hls');
 	let resolution = $state('FHD');
-	let packager = $state('MP4');
+	let codec = $state<VideoCodec>('h264');
 
 	// Metadata States
 	let isDetecting = $state(false);
 	let sourceWidth = $state(0);
 	let sourceHeight = $state(0);
 
-	const protocols: VideoProtocol[] = ['hls', 'dash', 'plain'];
+	// Definisi pilihan yang tersedia
+	const protocols: { value: VideoProtocol; label: string; desc: string }[] = [
+		{ value: 'hls', label: 'HLS', desc: 'HTTP Live Streaming — cocok untuk H.264/H.265' },
+		{ value: 'dash', label: 'DASH', desc: 'Dynamic Adaptive Streaming — cocok untuk VP9/AV1' },
+		{ value: 'plain', label: 'Plain', desc: 'File tunggal MP4/WebM/MKV untuk download' }
+	];
+
+	// Codec yang tersedia per protocol
+	const codecOptions: Record<VideoProtocol, { value: VideoCodec; label: string }[]> = {
+		hls: [
+			{ value: 'h264', label: 'H.264' },
+			{ value: 'h265', label: 'H.265 / HEVC' }
+		],
+		dash: [
+			{ value: 'vp9', label: 'VP9' },
+			{ value: 'av1', label: 'AV1' },
+			{ value: 'h264', label: 'H.264' }
+		],
+		plain: [
+			{ value: 'h264', label: 'H.264 (MP4)' },
+			{ value: 'vp9', label: 'VP9 (WebM)' },
+			{ value: 'h265', label: 'H.265 (MKV)' }
+		]
+	};
+
+	// Otomatis reset codec ke default saat protocol berubah
+	$effect(() => {
+		codec = codecOptions[protocol][0].value;
+	});
+
 	const resolutions = [
 		{ id: '4k', label: '2160p', height: 2160 },
 		{ id: 'QHD', label: '1440p', height: 1440 },
@@ -29,7 +58,6 @@
 		{ id: 'SD', label: '480p', height: 480 },
 		{ id: 'LD', label: '360p', height: 360 }
 	];
-	const packagers = ['MP4', 'WebM', 'MKV'];
 
 	// Fungsi Pendeteksi Metadata Video
 	async function handleFileChange(e: Event) {
@@ -61,11 +89,26 @@
 		};
 	}
 
+	// Hitung format output berdasarkan codec yang dipilih
+	const outputFormat = $derived(
+		codec === 'vp9' || codec === 'vp8' || codec === 'av1'
+			? protocol === 'plain'
+				? 'WebM'
+				: 'DASH/WebM'
+			: codec === 'h265' && protocol === 'plain'
+				? 'MKV'
+				: protocol === 'hls'
+					? 'HLS/MP4'
+					: protocol === 'dash'
+						? 'DASH/fMP4'
+						: 'MP4'
+	);
+
 	async function startUpload() {
 		if (!file || !title) return;
 		await uploader.upload(file, {
 			title,
-			targetCodec: protocol === 'dash' ? 'vp9' : 'h264',
+			targetCodec: codec,
 			targetProtocol: protocol
 		});
 	}
@@ -128,18 +171,19 @@
 				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase"
 					>Protocols</span
 				>
-				<div class="flex flex-wrap gap-2">
-					{#each protocols as p (p)}
+				<div class="flex flex-col gap-2">
+					{#each protocols as p (p.value)}
 						<button
-							onclick={() => (protocol = p)}
+							onclick={() => (protocol = p.value)}
 							class={cn(
-								'rounded-full border px-6 py-2 text-xs font-bold uppercase transition-all',
-								protocol === p
-									? 'border-primary bg-primary text-white shadow-lg shadow-primary/20'
+								'flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all',
+								protocol === p.value
+									? 'border-primary bg-primary/10 text-primary'
 									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
 							)}
 						>
-							{p}
+							<span class="text-xs font-bold uppercase">{p.label}</span>
+							<span class="text-[10px] opacity-60">{p.desc}</span>
 						</button>
 					{/each}
 				</div>
@@ -173,23 +217,28 @@
 				</div>
 			</div>
 
-			<!-- Packagers -->
+			<!-- Codec & Format Output -->
 			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase"
-					>Packagers</span
-				>
+				<div class="mb-4 flex items-center justify-between">
+					<span class="text-[10px] font-black tracking-widest text-text-muted uppercase"
+						>Codec / Format</span
+					>
+					<span class="rounded-full bg-bg-elevated px-3 py-1 text-[10px] font-bold text-text-muted">
+						Output: {outputFormat}
+					</span>
+				</div>
 				<div class="flex flex-wrap gap-2">
-					{#each packagers as pkg (pkg)}
+					{#each codecOptions[protocol] as c (c.value)}
 						<button
-							onclick={() => (packager = pkg)}
+							onclick={() => (codec = c.value)}
 							class={cn(
-								'rounded-full border px-6 py-2 text-xs font-bold uppercase transition-all',
-								packager === pkg
+								'rounded-full border px-5 py-2 text-xs font-bold transition-all',
+								codec === c.value
 									? 'border-primary bg-primary text-white shadow-md shadow-primary/10'
 									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
 							)}
 						>
-							{pkg}
+							{c.label}
 						</button>
 					{/each}
 				</div>

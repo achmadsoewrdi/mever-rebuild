@@ -2,29 +2,9 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
 import { videos, videoAssets } from "../../../drizzle/schema";
 
-export type CreateVideoData = {
-  title: string;
-  slug: string;
-  sourcePath: string;
-  originalName: string;
-  status: "uploading" | "queued" | "processing" | "ready" | "failed";
-  targetCodec?: "h264" | "h265" | "hevc" | "vp9" | "av1" | "vp8";
-  targetProtocol?: "hls" | "dash" | "plain";
-};
+export type CreateVideoData = typeof videos.$inferInsert;
 
-export type CreateAssetData = {
-  videoId: string;
-  jobId?: string;
-  codec: "h264" | "h265" | "hevc" | "vp9" | "av1" | "vp8";
-  format: "mp4" | "webm";
-  protocol: "hls" | "dash" | "plain";
-  resolution: string;
-  bitrateKbps?: number;
-  storagePath?: string;
-  cdnUrl?: string;
-  manifestUrl?: string;
-  fileSizeBytes?: number;
-};
+export type CreateAssetData = typeof videoAssets.$inferInsert;
 
 export const createVideo = async (data: CreateVideoData) => {
   const result = await db.insert(videos).values(data).returning();

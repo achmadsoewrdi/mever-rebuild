@@ -8,9 +8,15 @@
 		videos?: Video[];
 		isLoading?: boolean;
 		viewMode?: 'grid' | 'list';
+		isCompact?: boolean;
 	}
 
-	let { videos = [], isLoading = false, viewMode = 'grid' }: Props = $props();
+	let {
+		videos = [],
+		isLoading = false,
+		viewMode = 'grid',
+		isCompact = false
+	}: Props = $props();
 
 	// Array dummy untuk me-render skeleton sejumlah tertentu saat loading
 	const skeletons = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -20,7 +26,9 @@
 	<!-- STATE 1: LOADING -->
 	<div
 		class={viewMode === 'grid'
-			? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+			? isCompact
+				? 'grid grid-cols-1 gap-4 p-4'
+				: 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
 			: 'flex flex-col'}
 	>
 		{#each skeletons as id (id)}
@@ -64,7 +72,9 @@
 	<!-- STATE 3: BERISI DATA -->
 	<div
 		class={viewMode === 'grid'
-			? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+			? isCompact
+				? 'grid grid-cols-1 gap-4 p-4'
+				: 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
 			: 'flex flex-col'}
 	>
 		{#each videos as video (video.id)}

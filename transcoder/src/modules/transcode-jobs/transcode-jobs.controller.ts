@@ -126,9 +126,11 @@ export const listenUploadQueue = async () => {
       // Karena Backend sudah membuat record sebelum upload
       // ---------------------------------------------------------------
       let videoData = await findVideoBySourcePath(rawPath);
-      
+
       if (!videoData) {
-        console.log(`[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`);
+        console.log(
+          `[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`,
+        );
         videoData = await createVideo({
           title: parsedName.baseName,
           slug: slug,
@@ -212,13 +214,24 @@ export const listenUploadQueue = async () => {
       // ---------------------------------------------------------------
       const codec = videoData.targetCodec || env.DEFAULT_CODEC;
       // Jika user tidak memilih protocol, gunakan getProtocol untuk menentukan otomatis berdasarkan codec
-      const packager = videoData.targetProtocol || getProtocol(codec, env.DEFAULT_PACKAGER);
+      const packager =
+        videoData.targetProtocol || getProtocol(codec, env.DEFAULT_PACKAGER);
 
-      console.log(`[UPLOAD WORKER] Menggunakan Codec: ${codec} | Protocol: ${packager}`);
+      console.log(
+        `[UPLOAD WORKER] Menggunakan Codec: ${codec} | Protocol: ${packager}`,
+      );
 
-      // Tentukan ekstensi file berdasarkan jenis packager
+      // Tentukan ekstensi berdasarkan kombinasi packager + codec
       const extension =
-        packager === "hls" ? ".m3u8" : packager === "dash" ? ".mpd" : ".mp4";
+        packager === "hls"
+          ? ".m3u8"
+          : packager === "dash"
+            ? ".mpd"
+            : codec === "vp9" || codec === "vp8" || codec === "av1"
+              ? ".webm"
+              : codec === "h265" || codec === "hevc"
+                ? ".mkv"
+                : ".mp4";
 
       const jobsToInsert: CreateJobData[] = targetResolutions.map((res) => ({
         videoId: videoData.id,
@@ -311,7 +324,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
         `\n[${workerId}] Memulai render — Job: ${jobId} | Resolusi: ${resolutionName}`,
       );
       await updateJobStatus(jobId, "processing", workerId);
-      
+
       // Invalidate cache agar status 'processing' terlihat di dashboard
       await invalidateVideosCache(videoId);
 
@@ -356,6 +369,47 @@ export const listenTranscodeQueue = async (workerId: string) => {
       );
 
       // ---------------------------------------------------------------
+      // POST-PROCESS: Perbaiki path absolut Windows di manifest .mpd
+      // ---------------------------------------------------------------
+      // FFmpeg di Windows kadang menulis path absolut (D:\...\temp\) ke dalam
+      // template segmen di manifest .mpd, sehingga browser mencoba akses
+      // file:/// lokal alih-alih URL MinIO yang benar.
+      // Solusi: Strip semua path absolut, sisakan hanya nama file.
+      if (packager === "dash" && outputFilename.endsWith(".mpd")) {
+        try {
+          let mpdContent = await fs.readFile(localOutputPath, "utf-8");
+
+          // Ganti path Windows (baik dengan \ maupun /) dengan string kosong
+          // agar hanya nama file yang tersisa di dalam template segmen.
+          // Contoh: D:/MAGANG/.../temp/video-chunk → video-chunk
+          //         D:\MAGANG\...\temp\video-chunk → video-chunk
+          const normalizedTempDir = tempDir.replace(/\\/g, "/");
+          const escapedForwardSlash = normalizedTempDir.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&",
+          );
+          const escapedBackslash = tempDir
+            .replace(/\\/g, "\\\\")
+            .replace(/[.*+?^${}()|[\]]/g, "\\$&");
+
+          // Hapus tempDir prefix (forward slash maupun backslash)
+          mpdContent = mpdContent
+            .replace(new RegExp(escapedForwardSlash + "/", "g"), "")
+            .replace(new RegExp(escapedBackslash + "\\\\", "g"), "");
+
+          await fs.writeFile(localOutputPath, mpdContent, "utf-8");
+          console.log(
+            `[DASH] Berhasil memperbaiki path di manifest MPD: ${outputFilename}`,
+          );
+        } catch (fixErr: any) {
+          console.warn(
+            `[DASH] Gagal memperbaiki path MPD (non-fatal):`,
+            fixErr.message,
+          );
+        }
+      }
+
+      // ---------------------------------------------------------------
       // LANGKAH 3: Unggah hasil render (manifest) ke bucket publik MinIO
       // ---------------------------------------------------------------
       const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
@@ -373,11 +427,18 @@ export const listenTranscodeQueue = async (workerId: string) => {
         const segmentPrefix = `${slug}-${resolutionName}`;
 
         for (const file of files) {
-          // Identifikasi apakah file ini adalah bagian dari streaming (ts untuk HLS, chunk/init untuk DASH)
-          const isHlsSegment = packager === "hls" && file.startsWith(segmentPrefix) && file.endsWith(".ts");
-          const isDashSegment = packager === "dash" && file.startsWith(segmentPrefix) && (file.includes("chunk-stream") || file.includes("init-stream"));
+          // Identifikasi apakah file ini adalah bagian dari streaming
+          const isHlsSegment =
+            packager === "hls" &&
+            file.startsWith(segmentPrefix) &&
+            file.endsWith(".ts");
+          const isDashFmp4Segment =
+            packager === "dash" &&
+            file.startsWith(segmentPrefix) &&
+            (file.includes("chunk-stream") || file.includes("init-stream")) &&
+            (file.endsWith(".m4s") || file.endsWith(".webm"));
 
-          if (isHlsSegment || isDashSegment) {
+          if (isHlsSegment || isDashFmp4Segment) {
             const minioSegPath = `videos/${slug}/${resolutionName}/${file}`;
 
             await uploadToMinio(
@@ -400,7 +461,8 @@ export const listenTranscodeQueue = async (workerId: string) => {
         videoId,
         jobId,
         codec,
-        format: packager === "hls" ? "mp4" : "webm",
+        format:
+          packager === "dash" ? "mpd" : packager === "hls" ? "m3u8" : "mp4",
         protocol,
         resolution: resolutionName,
         manifestUrl: `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${minioOutputPath}`,
