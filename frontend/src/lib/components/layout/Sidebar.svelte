@@ -14,13 +14,13 @@
 <aside
 	class="relative h-full border-r border-slate-200 bg-white transition-all duration-300 dark:border-border-base/50 dark:bg-bg-secondary {isCollapsed
 		? 'w-0 border-none'
-		: 'w-72'}"
+		: 'w-52'}"
 >
 	<!-- Toggle Button (Premium Pill Design) -->
 	<button
 		onclick={onToggle}
-		class="absolute top-20 z-60 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition-all duration-300 hover:scale-110 active:scale-95 {isCollapsed
-			? '-left-1 border-rose-200 bg-rose-500 text-white shadow-rose-200'
+		class="absolute top-16 z-60 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition-all duration-300 hover:scale-110 active:scale-95 {isCollapsed
+			? '-left-3 border-rose-200 bg-rose-500 text-white '
 			: '-right-4 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-rose-500 dark:border-border-base/50 dark:bg-bg-surface dark:text-text-muted dark:hover:bg-bg-elevated'}"
 		aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
 	>
@@ -35,9 +35,9 @@
 	<div
 		class="flex h-full flex-col gap-8 overflow-hidden transition-all duration-300 {isCollapsed
 			? 'w-0 opacity-0'
-			: 'w-72 px-4 py-8 opacity-100'}"
+			: 'w-full px-4 py-8 opacity-100'}"
 	>
-		<div class="flex min-w-[250px] flex-col gap-8">
+		<div class="flex flex-col gap-8">
 			<!-- Section: Protocols -->
 			<section>
 				<h3

@@ -22,7 +22,7 @@ export const codecTypeEnum = pgEnum("codec_type", [
   "av1",
   "vp8",
 ]);
-export const formatTypeEnum = pgEnum("format_type", ["mp4", "webm"]);
+export const formatTypeEnum = pgEnum("format_type", ["mp4", "webm", "mpd", "m3u8"]);
 export const protocolTypeEnum = pgEnum("streaming_protocol", [
   "hls",
   "dash",
