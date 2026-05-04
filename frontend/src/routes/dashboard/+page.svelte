@@ -5,23 +5,26 @@
 	import type { Video } from '$lib/types/video.types';
 	import { toast } from 'svelte-sonner';
 	import { cn } from '$lib/utils/cn';
+	import { filterStore } from '$lib/stores/video-filter.svelte';
 
+	// Data States
 	let videos = $state<Video[]>([]);
 	let isLoading = $state(true);
-
-	let searchQuery = $state('');
-	let viewMode = $state<'grid' | 'list'>('grid');
-
 	let currentPage = $state(1);
 	let limit = 12;
 
-	async function loadVideos(query: string, page: number) {
+	// Fungsi Load Data (Mengambil semua parameter dari Store)
+	async function loadVideos() {
 		isLoading = true;
 		try {
 			const res = await videoApi.getVideos({
-				search: query,
-				page: page,
-				limit: limit
+				search: filterStore.searchQuery,
+				page: currentPage,
+				limit: limit,
+				// Mengirim array filter aktif dari Sidebar
+				protocols: filterStore.activeFilters.protocols,
+				encoders: filterStore.activeFilters.encoders,
+				resolutions: filterStore.activeFilters.resolutions
 			});
 
 			videos = res.data || [];
@@ -33,47 +36,51 @@
 		}
 	}
 
+	// Reaktivitas Otomatis: Panggil API setiap kali isi Store berubah
 	$effect(() => {
+		// Melacak filterStore secara mendalam (Search, Checkboxes, dll)
 		const timeoutId = setTimeout(() => {
-			loadVideos(searchQuery, currentPage);
-		}, 500);
+			loadVideos();
+		}, 300); // Debounce 300ms agar tidak terlalu sering hit API saat mengetik
 		return () => clearTimeout(timeoutId);
 	});
 </script>
 
-<!-- ... bagian script tetap sama ... -->
-
 <div class="flex flex-col transition-all duration-500">
-	<!-- 1. Sticky Header Section with Blur Effect -->
+	<!-- 1. Sticky Header Section with Blur Effect (Glassmorphism) -->
 	<div
-		class="sticky top-0 z-10 border-b border-border-base bg-bg-secondary/80 px-6 py-1 backdrop-blur-md"
+		class="sticky top-0 z-10 border-b border-border-base bg-bg-secondary/80 px-6 py-2 backdrop-blur-md"
 	>
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-2xl font-bold tracking-tight text-text-main">Video Library</h1>
 				<div class="mt-1 flex gap-4 text-[11px] font-medium text-text-muted">
-					<span>13 videos</span>
+					<span>{videos.length} videos</span>
 					<span>•</span>
-					<span class="font-bold text-rose-500">3 Live Now</span>
+					<span class="font-bold text-rose-500">Live Engine Active</span>
 				</div>
 			</div>
-			<!-- Filter & Search terintegrasi di kanan -->
+
+			<!-- Filter & Search (Binding Langsung ke Store) -->
 			<div class="flex items-center gap-4">
-				<VideoFilter bind:searchQuery bind:viewMode />
+				<VideoFilter
+					bind:searchQuery={filterStore.searchQuery}
+					bind:viewMode={filterStore.viewMode}
+				/>
 			</div>
 		</div>
 	</div>
 
-	<!-- 2. Kontainer Konten (Dinamis) -->
+	<!-- 2. Kontainer Konten (Dinamis berdasarkan ViewMode di Store) -->
 	<div
 		class={cn(
-			'transition-all duration-300',
-			viewMode === 'list'
-				? 'w-full bg-bg-secondary' // Full width tanpa margin & tanpa rounded
-				: 'grid gap-6 bg-transparent p-6' // Mode Grid tetap pake padding
+			'transition-all duration-300 ease-in-out',
+			filterStore.viewMode === 'list'
+				? 'w-full bg-bg-secondary' // Full width di mode list
+				: 'grid gap-6 bg-transparent p-6' // Padding & Grid di mode grid
 		)}
 	>
-		<!-- Jika ada kategori "LIVE NOW" atau "ON DEMAND" bisa ditambah di VideoGrid -->
-		<VideoGrid {videos} {isLoading} {viewMode} />
+		<!-- Komponen Grid/List Video -->
+		<VideoGrid {videos} {isLoading} viewMode={filterStore.viewMode} />
 	</div>
 </div>

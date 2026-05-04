@@ -1,4 +1,9 @@
-import { findAllVideos, findVideoById, createVideo, updateVideoStatus } from "./videos.repository";
+import {
+  findAllVideos,
+  findVideoById,
+  createVideo,
+  updateVideoStatus,
+} from "./videos.repository";
 import { redisCache, minioClient } from "../../loaders";
 import { VideoFilterInput, RequestUploadInput } from "./videos.schema";
 import { env } from "../../config/env";
@@ -50,7 +55,10 @@ const invalidateVideosCache = async () => {
   }
 };
 
-export const requestUpload = async (userId: string, input: RequestUploadInput) => {
+export const requestUpload = async (
+  userId: string,
+  input: RequestUploadInput,
+) => {
   const slug = generateSlug(input.title);
   const objectName = `raw/${userId}/${slug}.mp4`;
 
@@ -83,7 +91,7 @@ export const requestUpload = async (userId: string, input: RequestUploadInput) =
 
 export const confirmUpload = async (videoId: string): Promise<void> => {
   await updateVideoStatus(videoId, "ready");
-  
+
   // Hapus cache list videos dan cache detail video
   await invalidateVideosCache();
   await redisCache.del(`cache:video:${videoId}`);

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SidebarItem from './SidebarItem.svelte';
+	import { filterStore } from '$lib/stores/video-filter.svelte';
 
 	// State untuk manajemen filter menggunakan Svelte 5 Runes
 	let filters = $state({
@@ -39,9 +40,9 @@
 			Protocols
 		</h3>
 		<div class="flex flex-col gap-1">
-			<SidebarItem label="HLS" bind:checked={filters.protocols.hls} />
-			<SidebarItem label="DASH" bind:checked={filters.protocols.dash} />
-			<SidebarItem label="Plain" bind:checked={filters.protocols.plain} />
+			<SidebarItem label="HLS" bind:checked={filterStore.protocols.hls} />
+			<SidebarItem label="DASH" bind:checked={filterStore.protocols.dash} />
+			<SidebarItem label="Plain" bind:checked={filterStore.protocols.plain} />
 		</div>
 	</section>
 
@@ -53,11 +54,11 @@
 			Encoders (Codec)
 		</h3>
 		<div class="flex flex-col gap-1">
-			<SidebarItem label="H.264" bind:checked={filters.encoders.h264} />
-			<SidebarItem label="AV1" bind:checked={filters.encoders.av1} />
-			<SidebarItem label="H.265 / HEVC" bind:checked={filters.encoders.h265} />
-			<SidebarItem label="VP8" bind:checked={filters.encoders.vp8} />
-			<SidebarItem label="VP9" bind:checked={filters.encoders.vp9} />
+			<SidebarItem label="H.264" bind:checked={filterStore.encoders.h264} />
+			<SidebarItem label="AV1" bind:checked={filterStore.encoders.av1} />
+			<SidebarItem label="H.265 / HEVC" bind:checked={filterStore.encoders.h265} />
+			<SidebarItem label="VP8" bind:checked={filterStore.encoders.vp8} />
+			<SidebarItem label="VP9" bind:checked={filterStore.encoders.vp9} />
 		</div>
 	</section>
 
@@ -69,11 +70,11 @@
 			Resolutions
 		</h3>
 		<div class="flex flex-col gap-1">
-			<SidebarItem label="4K (2160p)" bind:checked={filters.resolutions.r4k} />
-			<SidebarItem label="QHD (1440p)" bind:checked={filters.resolutions.qhd} />
-			<SidebarItem label="FHD (1080p)" bind:checked={filters.resolutions.fhd} />
-			<SidebarItem label="HD (720p)" bind:checked={filters.resolutions.hd} />
-			<SidebarItem label="SD (480p)" bind:checked={filters.resolutions.sd} />
+			<SidebarItem label="4K (2160p)" bind:checked={filterStore.resolutions.r4k} />
+			<SidebarItem label="QHD (1440p)" bind:checked={filterStore.resolutions.qhd} />
+			<SidebarItem label="FHD (1080p)" bind:checked={filterStore.resolutions.fhd} />
+			<SidebarItem label="HD (720p)" bind:checked={filterStore.resolutions.hd} />
+			<SidebarItem label="SD (480p)" bind:checked={filterStore.resolutions.sd} />
 		</div>
 	</section>
 

@@ -48,6 +48,9 @@ export interface VideoFilters {
 	search?: string;
 	page?: number;
 	limit?: number;
+	protocols?: string[];
+	encoders?: string[];
+	resolutions?: string[];
 }
 
 /**
