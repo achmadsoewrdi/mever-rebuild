@@ -15,6 +15,9 @@
 
 	// Fungsi Load Data (Mengambil semua parameter dari Store)
 	async function loadVideos() {
+		const active = filterStore.activeFilters;
+		console.log('[DEBUG] Memanggil loadVideos dengan filter:', active);
+
 		isLoading = true;
 		try {
 			const res = await videoApi.getVideos({
@@ -22,9 +25,9 @@
 				page: currentPage,
 				limit: limit,
 				// Mengirim array filter aktif dari Sidebar
-				protocols: filterStore.activeFilters.protocols,
-				encoders: filterStore.activeFilters.encoders,
-				resolutions: filterStore.activeFilters.resolutions
+				protocols: active.protocols,
+				encoders: active.encoders,
+				resolutions: active.resolutions
 			});
 
 			videos = res.data || [];
@@ -38,7 +41,16 @@
 
 	// Reaktivitas Otomatis: Panggil API setiap kali isi Store berubah
 	$effect(() => {
-		// Melacak filterStore secara mendalam (Search, Checkboxes, dll)
+		// Deep tracking menggunakan JSON.stringify agar perubahan di dalam objek terdeteksi
+		const _track = JSON.stringify([
+			filterStore.protocols,
+			filterStore.encoders,
+			filterStore.resolutions,
+			filterStore.searchQuery,
+			currentPage
+		]);
+		void _track;
+
 		const timeoutId = setTimeout(() => {
 			loadVideos();
 		}, 300); // Debounce 300ms agar tidak terlalu sering hit API saat mengetik

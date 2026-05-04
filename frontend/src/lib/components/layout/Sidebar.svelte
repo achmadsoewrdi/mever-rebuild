@@ -1,32 +1,6 @@
 <script lang="ts">
 	import SidebarItem from './SidebarItem.svelte';
 	import { filterStore } from '$lib/stores/video-filter.svelte';
-
-	// State untuk manajemen filter menggunakan Svelte 5 Runes
-	let filters = $state({
-		protocols: {
-			hls: true,
-			dash: false,
-			plain: false
-		},
-		encoders: {
-			h264: false,
-			av1: false,
-			h265: false,
-			vp8: false,
-			vp9: false
-		},
-		resolutions: {
-			r4k: false,
-			qhd: false,
-			fhd: false,
-			hd: false,
-			sd: false
-		},
-		packagers: {
-			mp4: false
-		}
-	});
 </script>
 
 <aside
@@ -86,7 +60,7 @@
 			Packagers
 		</h3>
 		<div class="flex flex-col gap-1">
-			<SidebarItem label="MP4" bind:checked={filters.packagers.mp4} />
+			<SidebarItem label="MP4" bind:checked={filterStore.packagers.mp4} />
 		</div>
 	</section>
 </aside>

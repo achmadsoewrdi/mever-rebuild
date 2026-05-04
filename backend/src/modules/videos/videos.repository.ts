@@ -1,6 +1,6 @@
-import { eq, ilike, and, desc } from "drizzle-orm";
+import { eq, ilike, and, desc, inArray, exists } from "drizzle-orm";
 import { db } from "../../loaders";
-import { videos } from "../../../drizzle/schema";
+import { videos, videoAssets } from "../../../drizzle/schema";
 import { VideoFilterInput } from "./videos.schema";
 
 type Video = typeof videos.$inferSelect;
@@ -10,7 +10,11 @@ type Video = typeof videos.$inferSelect;
 // ============================================
 
 export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> => {
-  const { status, search, limit = 10, page = 1 } = filter;
+  console.log("--------------------------------------------------");
+  console.log("[BACKEND REPO] Memproses filter:", JSON.stringify(filter));
+  console.log("[BACKEND REPO] CWD:", process.cwd());
+  
+  const { status, search, protocols, encoders, resolutions, limit = 10, page = 1 } = filter;
   const whereConditions = [];
 
   if (status) {
@@ -19,7 +23,37 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
   if (search) {
     whereConditions.push(ilike(videos.title, `%${search}%`));
   }
+
+  // Filter Protocols (targetProtocol)
+  if (protocols && protocols.length > 0) {
+    console.log("[REPO] Menambah filter protocols:", protocols);
+    whereConditions.push(inArray(videos.targetProtocol, protocols as any));
+  }
+
+  // Filter Encoders (targetCodec)
+  if (encoders && encoders.length > 0) {
+    console.log("[REPO] Menambah filter encoders:", encoders);
+    whereConditions.push(inArray(videos.targetCodec, encoders as any));
+  }
+
+  // Filter Resolutions (Join dengan video_assets)
+  if (resolutions && resolutions.length > 0) {
+    console.log("[REPO] Menambah filter resolutions:", resolutions);
+    const subquery = db
+      .select({ id: videoAssets.videoId })
+      .from(videoAssets)
+      .where(
+        and(
+          eq(videoAssets.videoId, videos.id),
+          inArray(videoAssets.resolution, resolutions),
+        ),
+      );
+    whereConditions.push(exists(subquery));
+  }
+
   const offset = (page - 1) * limit;
+  console.log("[REPO] Total kondisi WHERE:", whereConditions.length);
+  
   return db
     .select()
     .from(videos)

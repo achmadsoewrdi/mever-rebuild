@@ -21,6 +21,10 @@ export const videoFilterSchema = z.object({
     .optional()
     .default(10),
   search: z.string().optional(),
+  // Tambahkan filter array untuk sidebar
+  protocols: z.preprocess((val) => (typeof val === "string" ? [val] : val), z.array(z.string()).optional()),
+  encoders: z.preprocess((val) => (typeof val === "string" ? [val] : val), z.array(z.string()).optional()),
+  resolutions: z.preprocess((val) => (typeof val === "string" ? [val] : val), z.array(z.string()).optional()),
 });
 
 export type VideoFilterInput = z.infer<typeof videoFilterSchema>;

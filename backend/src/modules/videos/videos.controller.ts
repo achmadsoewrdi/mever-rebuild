@@ -10,12 +10,16 @@ export const handleListVideos = async (
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> => {
+  console.log(">>>>>>>>>> [REQUEST MASUK] GET /videos <<<<<<<<<<");
+  console.log("[BACKEND CONTROLLER] Query raw:", JSON.stringify(request.query));
   const parsed = videoFilterSchema.safeParse(request.query);
   if (!parsed.success) {
+    console.error("[BACKEND CONTROLLER] Validasi filter GAGAL:", parsed.error.format());
     return reply
       .status(400)
       .send(errorResponse("Query parameter tidak valid", parsed.error.issues));
   }
+  console.log("[BACKEND CONTROLLER] Validasi sukses, memanggil service...");
   try {
     const videos = await listVideos(parsed.data);
     reply.status(200).send(SuccessResponse(videos, "Berhasil mengambil daftar video"));

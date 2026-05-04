@@ -17,6 +17,10 @@ const apiClient = axios.create({
 	baseURL: PUBLIC_API_BASE_URL,
 	headers: {
 		'Content-Type': 'application/json'
+	},
+	// Tambahkan serializer agar array dikirim sebagai protocols=hls&protocols=dash (tanpa [])
+	paramsSerializer: {
+		indexes: null
 	}
 });
 
