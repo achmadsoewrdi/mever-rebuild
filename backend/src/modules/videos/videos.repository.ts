@@ -24,16 +24,34 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
     whereConditions.push(ilike(videos.title, `%${search}%`));
   }
 
-  // Filter Protocols (targetProtocol)
+  // Filter Protocols (Join dengan video_assets agar sinkron dengan UI Tags)
   if (protocols && protocols.length > 0) {
     console.log("[REPO] Menambah filter protocols:", protocols);
-    whereConditions.push(inArray(videos.targetProtocol, protocols as any));
+    const subquery = db
+      .select({ id: videoAssets.videoId })
+      .from(videoAssets)
+      .where(
+        and(
+          eq(videoAssets.videoId, videos.id),
+          inArray(videoAssets.protocol, protocols as any),
+        ),
+      );
+    whereConditions.push(exists(subquery));
   }
 
-  // Filter Encoders (targetCodec)
+  // Filter Encoders (Join dengan video_assets agar sinkron dengan UI Tags)
   if (encoders && encoders.length > 0) {
     console.log("[REPO] Menambah filter encoders:", encoders);
-    whereConditions.push(inArray(videos.targetCodec, encoders as any));
+    const subquery = db
+      .select({ id: videoAssets.videoId })
+      .from(videoAssets)
+      .where(
+        and(
+          eq(videoAssets.videoId, videos.id),
+          inArray(videoAssets.codec, encoders as any),
+        ),
+      );
+    whereConditions.push(exists(subquery));
   }
 
   // Filter Resolutions (Join dengan video_assets)
@@ -54,13 +72,18 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
   const offset = (page - 1) * limit;
   console.log("[REPO] Total kondisi WHERE:", whereConditions.length);
   
-  return db
+  const query = db
     .select()
     .from(videos)
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
     .orderBy(desc(videos.createdAt))
     .limit(limit)
     .offset(offset);
+
+  console.log("[REPO] SQL Query:", query.toSQL().sql);
+  console.log("[REPO] SQL Params:", query.toSQL().params);
+
+  return query;
 };
 
 export const findVideoById = async (id: string): Promise<Video | undefined> => {

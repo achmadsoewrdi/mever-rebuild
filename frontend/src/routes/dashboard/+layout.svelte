@@ -5,6 +5,13 @@
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	// State untuk manajemen Sidebar Collapse
+	let isSidebarCollapsed = $state(false);
+
+	function toggleSidebar() {
+		isSidebarCollapsed = !isSidebarCollapsed;
+	}
 </script>
 
 <div class="flex h-screen w-full flex-col bg-slate-50 dark:bg-bg-primary">
@@ -12,11 +19,13 @@
 		<Navbar userName={data.user?.name} userInitials={data.user?.initials} />
 	</div>
 	<div class="flex flex-1 overflow-hidden">
-		<Sidebar />
+		<Sidebar isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
 
 		<main class="flex-1 overflow-y-auto">
 			{#if children}
-				{@render children()}
+				<div class="h-full w-full transition-all duration-500">
+					{@render children()}
+				</div>
 			{/if}
 		</main>
 	</div>

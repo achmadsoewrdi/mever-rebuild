@@ -17,7 +17,7 @@
 	}
 </script>
 
-<div class="flex items-center justify-between gap-4 py-6">
+<div class="flex items-center justify-between gap-4 py-4">
 	<!-- Bagian Input Pencarian Menggunakan Input.svelte -->
 	<div class="max-w-2xl flex-1">
 		<Input
