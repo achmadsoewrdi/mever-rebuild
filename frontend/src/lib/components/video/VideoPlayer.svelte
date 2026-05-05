@@ -2,6 +2,8 @@
 	import { untrack } from 'svelte';
 	import videojs from 'video.js';
 	import 'video.js/dist/video-js.css';
+	import VideoDebugPanel from './VideoDebugPanel.svelte';
+	import type { DebugStats } from './VideoDebugPanel.svelte';
 
 	type VideoJsPlayer = ReturnType<typeof videojs>;
 
@@ -10,11 +12,32 @@
 		poster?: string | null;
 		videoType?: string;
 		autoplay?: boolean;
+		showDebug?: boolean;
 	}
 
-	let { src, poster, videoType = 'video/mp4', autoplay = false }: Props = $props();
+	let {
+		src,
+		poster,
+		videoType = 'video/mp4',
+		autoplay = false,
+		showDebug = $bindable(false)
+	}: Props = $props();
+
+	// ── Debug Stats ──
+	let debugStats = $state<DebugStats>({
+		bandwidth: 0,
+		decodedFrames: 0,
+		droppedFrames: 0,
+		corruptedFrames: 0,
+		loadTime: 0,
+		width: 0,
+		height: 0
+	});
+	let loadStartTime = 0;
+	let debugInterval: ReturnType<typeof setInterval> | null = null;
 
 	let videoElement: HTMLVideoElement | undefined = $state();
+	let playerWrapper: HTMLDivElement | undefined = $state(); // wrapper utama untuk native fullscreen
 	let player: VideoJsPlayer | undefined = $state();
 	let errorMessage = $state<string | null>(null);
 
@@ -91,12 +114,34 @@
 		showRateMenu = false;
 	}
 
+	// FIX: Pakai native Browser Fullscreen API pada wrapper div kita,
+	// bukan player.requestFullscreen() yang hanya memfullscreen elemen internal Video.js.
+	// Ini memastikan custom control bar ikut masuk ke fullscreen context.
 	function toggleFullscreen() {
-		if (!player) return;
-		if (player.isFullscreen()) {
-			player.exitFullscreen();
+		if (!playerWrapper) return;
+		if (document.fullscreenElement) {
+			document.exitFullscreen();
 		} else {
-			player.requestFullscreen();
+			playerWrapper.requestFullscreen();
+		}
+	}
+
+	// Sync state isFullscreen dari native fullscreenchange event
+	function handleFullscreenChange() {
+		isFullscreen = !!document.fullscreenElement;
+	}
+
+	// Keyboard shortcut: F = fullscreen, Space = play/pause
+	function handleKeydown(e: KeyboardEvent) {
+		const tag = (e.target as HTMLElement).tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+		if (e.key === 'f' || e.key === 'F') {
+			e.preventDefault();
+			toggleFullscreen();
+		}
+		if (e.key === ' ') {
+			e.preventDefault();
+			togglePlay();
 		}
 	}
 
@@ -112,7 +157,7 @@
 			if (!player) {
 				player = videojs(el, {
 					autoplay,
-					controls: false, // ← Matikan bawaan, kita pakai custom
+					controls: false,
 					poster: poster || undefined,
 					responsive: true,
 					fluid: true,
@@ -138,12 +183,18 @@
 					volume = player?.volume() ?? 1;
 					isMuted = player?.muted() ?? false;
 				});
-				player.on('fullscreenchange', () => {
-					isFullscreen = player?.isFullscreen() ?? false;
-				});
 				player.on('error', () => {
 					const err = player?.error();
 					if (err) errorMessage = `Gagal memutar video (CODE:${err.code}): ${err.message}`;
+				});
+				// Catat waktu mulai load untuk kalkulasi Load Time
+				player.on('loadstart', () => {
+					loadStartTime = performance.now();
+				});
+				player.on('loadeddata', () => {
+					debugStats.loadTime = Math.round(performance.now() - loadStartTime);
+					debugStats.width = videoElement?.videoWidth ?? 0;
+					debugStats.height = videoElement?.videoHeight ?? 0;
 				});
 			}
 
@@ -160,10 +211,59 @@
 			}
 		};
 	});
+
+	// Daftarkan native fullscreenchange listener di level document
+	$effect(() => {
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		document.addEventListener('keydown', handleKeydown);
+		return () => {
+			document.removeEventListener('fullscreenchange', handleFullscreenChange);
+			document.removeEventListener('keydown', handleKeydown);
+		};
+	});
+
+	// Poll debug stats setiap 1 detik saat panel terbuka
+	$effect(() => {
+		if (!showDebug) {
+			if (debugInterval) {
+				clearInterval(debugInterval);
+				debugInterval = null;
+			}
+			return;
+		}
+		// Jalankan sekali langsung, lalu interval
+		function collectStats() {
+			if (!player || !videoElement) return;
+			// Bandwidth dari VHS (Video.js HLS/DASH engine)
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const tech = (player as any).tech(true);
+			const bw = tech?.vhs?.bandwidth ?? tech?.hls?.bandwidth ?? 0;
+			debugStats.bandwidth = bw;
+			// Frame quality dari native HTML5 API
+			const quality = videoElement.getVideoPlaybackQuality?.();
+			if (quality) {
+				debugStats.decodedFrames = quality.totalVideoFrames;
+				debugStats.droppedFrames = quality.droppedVideoFrames;
+				debugStats.corruptedFrames = quality.corruptedVideoFrames;
+			}
+			// Dimensi video aktual
+			debugStats.width = videoElement.videoWidth;
+			debugStats.height = videoElement.videoHeight;
+		}
+		collectStats();
+		debugInterval = setInterval(collectStats, 1000);
+		return () => {
+			if (debugInterval) {
+				clearInterval(debugInterval);
+				debugInterval = null;
+			}
+		};
+	});
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	bind:this={playerWrapper}
 	class="vjs-custom-skin group relative w-full overflow-hidden bg-black"
 	onmousemove={resetHideTimer}
 	onmouseleave={() => {
@@ -226,6 +326,13 @@
 					<path d="M8 5v14l11-7z" />
 				</svg>
 			</div>
+		</div>
+	{/if}
+
+	<!-- ── DEBUG OVERLAY PANEL ── -->
+	{#if showDebug}
+		<div class="animate-in fade-in absolute top-3 left-3 z-20 duration-200">
+			<VideoDebugPanel stats={debugStats} onClose={() => (showDebug = false)} />
 		</div>
 	{/if}
 
@@ -407,6 +514,29 @@
 	:global(.vjs-custom-skin .vjs-big-play-button) {
 		display: none !important;
 	}
+
+	/* FIX FULLSCREEN: Pastikan wrapper mengisi seluruh layar saat fullscreen,
+	   sehingga custom control bar tetap terlihat di atas video */
+	.vjs-custom-skin:fullscreen {
+		width: 100vw;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+	/* Prefixed untuk Safari */
+	.vjs-custom-skin:-webkit-full-screen {
+		width: 100vw;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
+	:global(.vjs-custom-skin:fullscreen .video-js),
+	:global(.vjs-custom-skin:-webkit-full-screen .video-js) {
+		width: 100% !important;
+		height: 100% !important;
+		flex: 1;
+	}
+
 	/* Custom range input styling */
 	input[type='range']::-webkit-slider-thumb {
 		-webkit-appearance: none;

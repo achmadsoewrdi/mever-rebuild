@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import dotenv from "dotenv";
+import os from "os";
 dotenv.config();
 
 console.log("RAW DATABASE_URL:", process.env.DATABASE_URL);
@@ -30,6 +31,15 @@ const envSchema = z.object({
   // Worker Info
   WORKER_ID: z.string().default("worker-1"),
   FRONTEND_URL: z.string().default("http://localhost:3000"),
+
+  // Jumlah worker transcode yang dijalankan secara paralel.
+  // Default: (jumlah CPU - 1), minimal 1.
+  // Contoh: mesin dengan 8 core → default 7 workers.
+  TRANSCODE_WORKER_COUNT: z.coerce
+    .number()
+    .int()
+    .min(1, "TRANSCODE_WORKER_COUNT minimal 1")
+    .default(Math.max(1, os.cpus().length - 1)),
 
   // Default Transcode Settings
   DEFAULT_CODEC: z.enum(["h264", "h265", "vp9", "vp8", "av1"]).default("h264"),

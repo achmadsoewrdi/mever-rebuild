@@ -2,8 +2,9 @@
 	import { page } from '$app/stores';
 	import { videoApi } from '$lib/api/videos.api';
 	import type { Video, VideoAsset } from '$lib/types/video.types';
-	import { ArrowLeft, Copy, BarChart2, ChevronDown, Check } from 'lucide-svelte';
+	import { ArrowLeft, BarChart2, ChevronDown, Check } from 'lucide-svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import CopyButton from '$lib/components/video/CopyButton.svelte';
 	import Tag from '$lib/components/ui/Tag.svelte';
 	import { formatBytes, formatDate } from '$lib/utils/format';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
@@ -13,6 +14,7 @@
 
 	let video = $state<Video | null>(null);
 	let isLoading = $state(true);
+	let showVideoDebug = $state(false);
 
 	const videoId = $derived($page.params.id);
 
@@ -160,7 +162,7 @@
 			<div class="bg-black">
 				{#if videoSrc}
 					{#key selectedAssetId}
-						<VideoPlayer src={videoSrc} {videoType} poster={video.thumbnailUrl} />
+						<VideoPlayer src={videoSrc} {videoType} poster={video.thumbnailUrl} bind:showDebug={showVideoDebug} />
 					{/key}
 				{:else}
 					<div class="flex aspect-[2.1/1] w-full items-center justify-center bg-slate-950">
@@ -237,25 +239,16 @@
 				<div class="flex items-center gap-2">
 					<Button
 						variant="ghost"
-						class="flex h-11 gap-2 rounded-xl border border-border-base bg-white px-5 text-xs font-bold dark:bg-bg-surface"
-						onclick={() => {
-							alert(`Manifest URL: ${videoSrc}\nType: ${videoType}`);
-						}}
+						class="flex h-11 gap-2 rounded-xl border border-border-base px-5 text-xs font-bold transition-colors
+						       {showVideoDebug
+							? 'border-rose-500/40 bg-rose-500/10 text-rose-500'
+							: 'bg-white dark:bg-bg-surface'}"
+						onclick={() => (showVideoDebug = !showVideoDebug)}
 					>
 						<BarChart2 size={14} class="text-rose-500" />
-						Debug
+						{showVideoDebug ? 'Hide Debug' : 'Debug'}
 					</Button>
-					<Button
-						variant="ghost"
-						class="flex h-11 gap-2 rounded-xl border border-border-base bg-white px-5 text-xs font-bold dark:bg-bg-surface"
-						onclick={() => {
-							navigator.clipboard.writeText(videoSrc);
-							alert('URL copied to clipboard!');
-						}}
-					>
-						<Copy size={14} class="text-rose-500" />
-						Copy Link
-					</Button>
+					<CopyButton textToCopy={videoSrc} />
 				</div>
 			</div>
 		</div>
