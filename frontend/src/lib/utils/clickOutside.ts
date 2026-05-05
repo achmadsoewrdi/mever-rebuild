@@ -1,11 +1,10 @@
 export function clickOutside(node: HTMLElement, callback: () => void) {
-	function handleClick(event: MouseEvent) {
-		if (!node.contains(event.target as Node)) {
+	const handleClick = (event: MouseEvent) => {
+		if (node && !node.contains(event.target as Node) && !event.defaultPrevented) {
 			callback();
 		}
-	}
+	};
 
-	// Gunakan capture phase agar terjadi sebelum event lain
 	document.addEventListener('click', handleClick, true);
 
 	return {

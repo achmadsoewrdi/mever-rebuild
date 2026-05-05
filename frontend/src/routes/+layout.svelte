@@ -3,17 +3,34 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 	import { Moon, Sun } from 'lucide-svelte';
+
+	import { setContext } from 'svelte';
 	import { browser } from '$app/environment';
 
 	let { children } = $props();
 
-	// State untuk dark mode
-	let isDark = $state(false);
+	// State Tema Utama (Stabil karena ada di Root Layout)
+	let isDark = $state(
+		browser
+			? localStorage.getItem('theme') === 'dark' ||
+					(!localStorage.getItem('theme') &&
+						window.matchMedia('(prefers-color-scheme: dark)').matches)
+			: false
+	);
 
-	// Terapkan .dark class ke <html> setiap kali state berubah
+	// Bagikan state ini ke seluruh aplikasi via Context
+	setContext('theme', {
+		get isDark() { return isDark; },
+		toggle: () => {
+			isDark = !isDark;
+		}
+	});
+
+	// Sinkronisasi ke DOM dan Storage
 	$effect(() => {
 		if (browser) {
 			document.documentElement.classList.toggle('dark', isDark);
+			localStorage.setItem('theme', isDark ? 'dark' : 'light');
 		}
 	});
 </script>

@@ -203,43 +203,47 @@ export const listenUploadQueue = async () => {
       await fs.unlink(thumbnailPath);
 
       // ---------------------------------------------------------------
-      // Menentukan daftar resolusi target berdasarkan aturan bisnis
-      // Aturan: Jika video >= 720p → pecah ke beberapa resolusi (720p, 480p, 360p)
-      //         Jika video < 720p  → render satu resolusi saja (resolusi aslinya)
+      // Tentukan daftar resolusi target berdasarkan aturan bisnis
       // ---------------------------------------------------------------
       const targetResolutions = getResolutionByRule(height);
 
       // ---------------------------------------------------------------
-      // Tentukan Codec & Packager (Prioritas: User Choice > Default Env)
+      // KONSTRUKSI DISTRIBUTION SUITE (DASH + HLS + MULTI-PLAIN)
       // ---------------------------------------------------------------
-      const codec = videoData.targetCodec || env.DEFAULT_CODEC;
-      // Jika user tidak memilih protocol, gunakan getProtocol untuk menentukan otomatis berdasarkan codec
-      const packager =
-        videoData.targetProtocol || getProtocol(codec, env.DEFAULT_PACKAGER);
+      const jobsToInsert: CreateJobData[] = [];
+
+      // 1. Tambahkan Job Adaptive (DASH) - Gunakan resolusi tertinggi
+      jobsToInsert.push({
+        videoId: videoData.id,
+        codec: "h264", // Standard untuk streaming
+        packager: "dash",
+        resolution: targetResolutions[0].name,
+        outputFilename: `${slug}-dash.mpd`,
+      });
+
+      // 2. Tambahkan Job Adaptive (HLS) - Gunakan resolusi tertinggi
+      jobsToInsert.push({
+        videoId: videoData.id,
+        codec: "h264",
+        packager: "hls",
+        resolution: targetResolutions[0].name,
+        outputFilename: `${slug}-hls.m3u8`,
+      });
+
+      // 3. Tambahkan Job Static (Plain/MP4) untuk setiap resolusi
+      for (const res of targetResolutions) {
+        jobsToInsert.push({
+          videoId: videoData.id,
+          codec: "h264",
+          packager: "plain",
+          resolution: res.name,
+          outputFilename: `${slug}-${res.name}.mp4`,
+        });
+      }
 
       console.log(
-        `[UPLOAD WORKER] Menggunakan Codec: ${codec} | Protocol: ${packager}`,
+        `[UPLOAD WORKER] Generating Distribution Suite: DASH, HLS, and ${targetResolutions.length} Plain MP4s`,
       );
-
-      // Tentukan ekstensi berdasarkan kombinasi packager + codec
-      const extension =
-        packager === "hls"
-          ? ".m3u8"
-          : packager === "dash"
-            ? ".mpd"
-            : codec === "vp9" || codec === "vp8" || codec === "av1"
-              ? ".webm"
-              : codec === "h265" || codec === "hevc"
-                ? ".mkv"
-                : ".mp4";
-
-      const jobsToInsert: CreateJobData[] = targetResolutions.map((res) => ({
-        videoId: videoData.id,
-        codec: codec,
-        packager: packager,
-        resolution: res.name,
-        outputFilename: `${slug}-${res.name}${extension}`,
-      }));
 
       // Simpan semua job ke database dan perbarui total job di record video
       const createdJobs = await createManyJobs(jobsToInsert);
