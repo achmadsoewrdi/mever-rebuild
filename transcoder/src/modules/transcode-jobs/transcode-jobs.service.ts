@@ -219,7 +219,13 @@ export const transcodeVideo = async (
           ? "libx264"
           : codec === "h265" || codec === "hevc"
             ? "libx265"
-            : codec;
+            : codec === "vp9"
+              ? "libvpx-vp9"
+              : codec === "vp8"
+                ? "libvpx"
+                : codec === "av1"
+                  ? "libsvtav1"
+                  : codec;
       await runFfmpeg(fallbackCodec);
     } else {
       console.error(`[FFMPEG TRANSCODE ERROR] Gagal merender:`, err.message);

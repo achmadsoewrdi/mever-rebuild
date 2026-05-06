@@ -2,8 +2,8 @@
 	import { untrack } from 'svelte';
 	import videojs from 'video.js';
 	import 'video.js/dist/video-js.css';
-	import VideoDebugPanel from './VideoDebugPanel.svelte';
 	import type { DebugStats } from './VideoDebugPanel.svelte';
+	import { cn } from '$lib/utils/cn';
 
 	type VideoJsPlayer = ReturnType<typeof videojs>;
 
@@ -13,6 +13,7 @@
 		videoType?: string;
 		autoplay?: boolean;
 		showDebug?: boolean;
+		debugStats?: DebugStats;
 	}
 
 	let {
@@ -20,19 +21,19 @@
 		poster,
 		videoType = 'video/mp4',
 		autoplay = false,
-		showDebug = $bindable(false)
+		showDebug = $bindable(false),
+		debugStats = $bindable({
+			bandwidth: 0,
+			decodedFrames: 0,
+			droppedFrames: 0,
+			corruptedFrames: 0,
+			loadTime: 0,
+			width: 0,
+			height: 0
+		})
 	}: Props = $props();
 
 	// ── Debug Stats ──
-	let debugStats = $state<DebugStats>({
-		bandwidth: 0,
-		decodedFrames: 0,
-		droppedFrames: 0,
-		corruptedFrames: 0,
-		loadTime: 0,
-		width: 0,
-		height: 0
-	});
 	let loadStartTime = 0;
 	let debugInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -40,6 +41,7 @@
 	let playerWrapper: HTMLDivElement | undefined = $state(); // wrapper utama untuk native fullscreen
 	let player: VideoJsPlayer | undefined = $state();
 	let errorMessage = $state<string | null>(null);
+	let isPortrait = $state(false);
 
 	// ── Custom Control State ──
 	let isPlaying = $state(false);
@@ -159,8 +161,7 @@
 					autoplay,
 					controls: false,
 					poster: poster || undefined,
-					responsive: true,
-					fluid: true,
+					fill: true,
 					html5: {
 						vhs: { overrideNative: true, enableLowInitialPlaylist: true },
 						nativeAudioTracks: false,
@@ -193,8 +194,12 @@
 				});
 				player.on('loadeddata', () => {
 					debugStats.loadTime = Math.round(performance.now() - loadStartTime);
-					debugStats.width = videoElement?.videoWidth ?? 0;
-					debugStats.height = videoElement?.videoHeight ?? 0;
+					const w = videoElement?.videoWidth ?? 0;
+					const h = videoElement?.videoHeight ?? 0;
+					debugStats.width = w;
+					debugStats.height = h;
+					// Deteksi orientasi video (TikTok/Reels style jika tinggi > lebar)
+					isPortrait = h > w;
 				});
 			}
 
@@ -264,7 +269,12 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={playerWrapper}
-	class="vjs-custom-skin group relative w-full overflow-hidden bg-black"
+	class={cn(
+		'vjs-custom-skin group relative mx-auto overflow-hidden bg-black transition-all duration-700 ease-out',
+		isPortrait
+			? 'aspect-9/16 max-h-[75vh] w-full max-w-sm rounded-2xl shadow-2xl ring-1 ring-white/10 md:my-6'
+			: 'aspect-video w-full'
+	)}
 	onmousemove={resetHideTimer}
 	onmouseleave={() => {
 		if (isPlaying) showControls = false;
@@ -326,13 +336,6 @@
 					<path d="M8 5v14l11-7z" />
 				</svg>
 			</div>
-		</div>
-	{/if}
-
-	<!-- ── DEBUG OVERLAY PANEL ── -->
-	{#if showDebug}
-		<div class="animate-in fade-in absolute top-3 left-3 z-20 duration-200">
-			<VideoDebugPanel stats={debugStats} onClose={() => (showDebug = false)} />
 		</div>
 	{/if}
 

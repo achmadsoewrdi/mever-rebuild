@@ -11,10 +11,21 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	import VideoPlayer from '$lib/components/video/VideoPlayer.svelte';
+	import VideoDebugPanel from '$lib/components/video/VideoDebugPanel.svelte';
+	import type { DebugStats } from '$lib/components/video/VideoDebugPanel.svelte';
 
 	let video = $state<Video | null>(null);
 	let isLoading = $state(true);
 	let showVideoDebug = $state(false);
+	let videoDebugStats = $state<DebugStats>({
+		bandwidth: 0,
+		decodedFrames: 0,
+		droppedFrames: 0,
+		corruptedFrames: 0,
+		loadTime: 0,
+		width: 0,
+		height: 0
+	});
 
 	const videoId = $derived($page.params.id);
 
@@ -159,10 +170,21 @@
 			class="mx-auto w-full max-w-7xl overflow-hidden rounded-3xl border border-border-base bg-bg-secondary shadow-xl ring-1 ring-black/5"
 		>
 			<!-- VIDEO AREA -->
-			<div class="bg-black">
+			<div class="bg-black relative">
+				{#if showVideoDebug}
+					<div class="animate-in fade-in absolute top-3 left-3 z-20 duration-200">
+						<VideoDebugPanel stats={videoDebugStats} onClose={() => (showVideoDebug = false)} />
+					</div>
+				{/if}
 				{#if videoSrc}
 					{#key selectedAssetId}
-						<VideoPlayer src={videoSrc} {videoType} poster={video.thumbnailUrl} bind:showDebug={showVideoDebug} />
+						<VideoPlayer 
+							src={videoSrc} 
+							{videoType} 
+							poster={video.thumbnailUrl} 
+							bind:showDebug={showVideoDebug} 
+							bind:debugStats={videoDebugStats} 
+						/>
 					{/key}
 				{:else}
 					<div class="flex aspect-[2.1/1] w-full items-center justify-center bg-slate-950">

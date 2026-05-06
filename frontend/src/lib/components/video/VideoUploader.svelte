@@ -3,61 +3,17 @@
 	import { Button, Input } from '$lib/components/ui/index';
 	import { Upload, CircleCheck, PlayCircle, Loader2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
-	import type { VideoProtocol, VideoCodec } from '$lib/types/video.types';
-	import { cn } from '$lib/utils/cn';
 
 	const uploader = new VideoUploader();
 
 	// Form States
 	let file = $state<File | null>(null);
 	let title = $state('');
-	let protocol = $state<VideoProtocol>('hls');
-	let resolution = $state('FHD');
-	let codec = $state<VideoCodec>('h264');
 
 	// Metadata States
 	let isDetecting = $state(false);
 	let sourceWidth = $state(0);
 	let sourceHeight = $state(0);
-
-	// Definisi pilihan yang tersedia
-	const protocols: { value: VideoProtocol; label: string; desc: string }[] = [
-		{ value: 'hls', label: 'HLS', desc: 'HTTP Live Streaming — cocok untuk H.264/H.265' },
-		{ value: 'dash', label: 'DASH', desc: 'Dynamic Adaptive Streaming — cocok untuk VP9/AV1' },
-		{ value: 'plain', label: 'Plain', desc: 'File tunggal MP4/WebM/MKV untuk download' }
-	];
-
-	// Codec yang tersedia per protocol
-	const codecOptions: Record<VideoProtocol, { value: VideoCodec; label: string }[]> = {
-		hls: [
-			{ value: 'h264', label: 'H.264' },
-			{ value: 'h265', label: 'H.265 / HEVC' }
-		],
-		dash: [
-			{ value: 'vp9', label: 'VP9' },
-			{ value: 'av1', label: 'AV1' },
-			{ value: 'h264', label: 'H.264' }
-		],
-		plain: [
-			{ value: 'h264', label: 'H.264 (MP4)' },
-			{ value: 'vp9', label: 'VP9 (WebM)' },
-			{ value: 'h265', label: 'H.265 (MKV)' }
-		]
-	};
-
-	// Otomatis reset codec ke default saat protocol berubah
-	$effect(() => {
-		codec = codecOptions[protocol][0].value;
-	});
-
-	const resolutions = [
-		{ id: '4k', label: '2160p', height: 2160 },
-		{ id: 'QHD', label: '1440p', height: 1440 },
-		{ id: 'FHD', label: '1080p', height: 1080 },
-		{ id: 'HD', label: '720p', height: 720 },
-		{ id: 'SD', label: '480p', height: 480 },
-		{ id: 'LD', label: '360p', height: 360 }
-	];
 
 	// Fungsi Pendeteksi Metadata Video
 	async function handleFileChange(e: Event) {
@@ -80,36 +36,14 @@
 			URL.revokeObjectURL(video.src);
 			sourceWidth = video.videoWidth;
 			sourceHeight = video.videoHeight;
-
-			// Pilih resolusi default terbaik (jangan melebihi aslinya)
-			const bestRes = resolutions.find((r) => sourceHeight >= r.height);
-			if (bestRes) resolution = bestRes.id;
-
 			isDetecting = false;
 		};
 	}
 
-	// Hitung format output berdasarkan codec yang dipilih
-	const outputFormat = $derived(
-		codec === 'vp9' || codec === 'vp8' || codec === 'av1'
-			? protocol === 'plain'
-				? 'WebM'
-				: 'DASH/WebM'
-			: codec === 'h265' && protocol === 'plain'
-				? 'MKV'
-				: protocol === 'hls'
-					? 'HLS/MP4'
-					: protocol === 'dash'
-						? 'DASH/fMP4'
-						: 'MP4'
-	);
-
 	async function startUpload() {
 		if (!file || !title) return;
 		await uploader.upload(file, {
-			title,
-			targetCodec: codec,
-			targetProtocol: protocol
+			title
 		});
 	}
 </script>
@@ -155,7 +89,7 @@
 		</div>
 
 		<!-- Configuration Grid -->
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-6">
 			<!-- Video Title -->
 			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
 				<Input
@@ -164,84 +98,6 @@
 					placeholder="e.g Marvel Cinematic Universe"
 					class="mt-2"
 				/>
-			</div>
-
-			<!-- Protocols -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase"
-					>Protocols</span
-				>
-				<div class="flex flex-col gap-2">
-					{#each protocols as p (p.value)}
-						<button
-							onclick={() => (protocol = p.value)}
-							class={cn(
-								'flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all',
-								protocol === p.value
-									? 'border-primary bg-primary/10 text-primary'
-									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
-							)}
-						>
-							<span class="text-xs font-bold uppercase">{p.label}</span>
-							<span class="text-[10px] opacity-60">{p.desc}</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Resolution (SMART FILTERING) -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase">
-					Target Resolution {#if sourceHeight > 0}(Max: {sourceHeight}p){/if}
-				</span>
-				<div class="grid grid-cols-3 gap-2">
-					{#each resolutions as res (res.id)}
-						{@const isLocked = file && sourceHeight < res.height}
-						<button
-							onclick={() => !isLocked && (resolution = res.id)}
-							disabled={isLocked}
-							class={cn(
-								'flex flex-col items-center rounded-xl border py-2.5 transition-all',
-								resolution === res.id
-									? 'border-primary bg-primary/10 text-primary'
-									: 'border-border-base bg-bg-surface/30 text-text-muted hover:border-text-sub',
-								isLocked && 'cursor-not-allowed opacity-20 grayscale'
-							)}
-						>
-							<span class="text-[10px] font-black uppercase">{res.id}</span>
-							<span class="text-[9px] font-medium opacity-70"
-								>{isLocked ? 'Locked' : res.label}</span
-							>
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Codec & Format Output -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<div class="mb-4 flex items-center justify-between">
-					<span class="text-[10px] font-black tracking-widest text-text-muted uppercase"
-						>Codec / Format</span
-					>
-					<span class="rounded-full bg-bg-elevated px-3 py-1 text-[10px] font-bold text-text-muted">
-						Output: {outputFormat}
-					</span>
-				</div>
-				<div class="flex flex-wrap gap-2">
-					{#each codecOptions[protocol] as c (c.value)}
-						<button
-							onclick={() => (codec = c.value)}
-							class={cn(
-								'rounded-full border px-5 py-2 text-xs font-bold transition-all',
-								codec === c.value
-									? 'border-primary bg-primary text-white shadow-md shadow-primary/10'
-									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
-							)}
-						>
-							{c.label}
-						</button>
-					{/each}
-				</div>
 			</div>
 		</div>
 

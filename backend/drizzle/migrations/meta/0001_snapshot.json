@@ -1,0 +1,786 @@
+{
+  "id": "4efaf5a1-4a46-4975-b0b6-bfa77b28f0ed",
+  "prevId": "1adcc2c5-d23d-4217-a077-57e4cc0beefd",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "mfa_enabled": {
+          "name": "mfa_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "mfa_method": {
+          "name": "mfa_method",
+          "type": "mfa_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mfa_secret_enc": {
+          "name": "mfa_secret_enc",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mfa_backup_codes": {
+          "name": "mfa_backup_codes",
+          "type": "varchar(2048)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mfa_verified_at": {
+          "name": "mfa_verified_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.videos": {
+      "name": "videos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "uploaded_by": {
+          "name": "uploaded_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_name": {
+          "name": "original_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_path": {
+          "name": "source_path",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "video_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'uploading'"
+        },
+        "target_codec": {
+          "name": "target_codec",
+          "type": "codec_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_protocol": {
+          "name": "target_protocol",
+          "type": "streaming_protocol",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_url": {
+          "name": "thumbnail_url",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_seconds": {
+          "name": "duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "file_size_bytes": {
+          "name": "file_size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_jobs": {
+          "name": "total_jobs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "done_jobs": {
+          "name": "done_jobs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "videos_uploaded_by_users_id_fk": {
+          "name": "videos_uploaded_by_users_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "uploaded_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "videos_slug_unique": {
+          "name": "videos_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.video_assets": {
+      "name": "video_assets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preset_id": {
+          "name": "preset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "codec": {
+          "name": "codec",
+          "type": "codec_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "format_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "streaming_protocol",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolution": {
+          "name": "resolution",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bitrate_kbps": {
+          "name": "bitrate_kbps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storage_path": {
+          "name": "storage_path",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cdn_url": {
+          "name": "cdn_url",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "manifest_url": {
+          "name": "manifest_url",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "file_size_bytes": {
+          "name": "file_size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "video_assets_video_id_videos_id_fk": {
+          "name": "video_assets_video_id_videos_id_fk",
+          "tableFrom": "video_assets",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "video_assets_preset_id_quality_presets_id_fk": {
+          "name": "video_assets_preset_id_quality_presets_id_fk",
+          "tableFrom": "video_assets",
+          "tableTo": "quality_presets",
+          "columnsFrom": [
+            "preset_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.transcode_jobs": {
+      "name": "transcode_jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preset_id": {
+          "name": "preset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "redis_job_id": {
+          "name": "redis_job_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "worker_id": {
+          "name": "worker_id",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_filename": {
+          "name": "output_filename",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "progress_pct": {
+          "name": "progress_pct",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "queued_at": {
+          "name": "queued_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "transcode_jobs_video_id_videos_id_fk": {
+          "name": "transcode_jobs_video_id_videos_id_fk",
+          "tableFrom": "transcode_jobs",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "transcode_jobs_preset_id_quality_presets_id_fk": {
+          "name": "transcode_jobs_preset_id_quality_presets_id_fk",
+          "tableFrom": "transcode_jobs",
+          "tableTo": "quality_presets",
+          "columnsFrom": [
+            "preset_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quality_presets": {
+      "name": "quality_presets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "codec": {
+          "name": "codec",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "format": {
+          "name": "format",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolution": {
+          "name": "resolution",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bitrate_kbps": {
+          "name": "bitrate_kbps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "quality_presets_created_by_users_id_fk": {
+          "name": "quality_presets_created_by_users_id_fk",
+          "tableFrom": "quality_presets",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.storage_configs": {
+      "name": "storage_configs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "endpoint_url": {
+          "name": "endpoint_url",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bucket_input": {
+          "name": "bucket_input",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bucket_output": {
+          "name": "bucket_output",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_key": {
+          "name": "access_key",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "secret_key_enc": {
+          "name": "secret_key_enc",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "storage_configs_created_by_users_id_fk": {
+          "name": "storage_configs_created_by_users_id_fk",
+          "tableFrom": "storage_configs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.codec_type": {
+      "name": "codec_type",
+      "schema": "public",
+      "values": [
+        "h264",
+        "h265",
+        "hevc",
+        "vp9",
+        "av1",
+        "vp8"
+      ]
+    },
+    "public.format_type": {
+      "name": "format_type",
+      "schema": "public",
+      "values": [
+        "mp4",
+        "webm",
+        "mpd",
+        "m3u8"
+      ]
+    },
+    "public.job_status": {
+      "name": "job_status",
+      "schema": "public",
+      "values": [
+        "queued",
+        "processing",
+        "completed",
+        "failed"
+      ]
+    },
+    "public.mfa_method": {
+      "name": "mfa_method",
+      "schema": "public",
+      "values": [
+        "totp"
+      ]
+    },
+    "public.streaming_protocol": {
+      "name": "streaming_protocol",
+      "schema": "public",
+      "values": [
+        "hls",
+        "dash",
+        "plain"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "user"
+      ]
+    },
+    "public.video_status": {
+      "name": "video_status",
+      "schema": "public",
+      "values": [
+        "uploading",
+        "queued",
+        "processing",
+        "ready",
+        "failed"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
