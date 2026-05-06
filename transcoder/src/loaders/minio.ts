@@ -32,4 +32,36 @@ export const initBuckets = async (): Promise<void> => {
       );
     }
   }
+
+  // Tambahkan setup notifikasi setelah bucket dipastikan ada
+  await setupNotifications();
+};
+
+/**
+ * 3. Mengatur Notifikasi Bucket agar mengirim event ke Redis
+ */
+const setupNotifications = async () => {
+  const bucketName = env.MINIO_BUCKET_SOURCE;
+  const redisArn = `arn:minio:sqs::primary:redis`; // Nama target default di MinIO
+
+  try {
+    const config = new Minio.NotificationConfig();
+    const queueConfig = new Minio.QueueConfig(redisArn);
+
+    // WAJIB: Tentukan event apa yang ingin didengarkan (saat file dibuat)
+    queueConfig.addEvent("s3:ObjectCreated:*");
+
+    // Filter agar hanya memproses file video tertentu jika perlu
+    // queueConfig.addFilterSuffix('.mp4');
+
+    config.add(queueConfig);
+
+    await minioClient.setBucketNotification(bucketName, config);
+    console.log(`[MINIO NOTIFIKASI] Berhasil mengaktifkan notifikasi ke Redis`);
+  } catch (err: any) {
+    console.warn(
+      `[MINIO WARNING] Gagal mengatur notifikasi otomatis: ${err.message}`,
+    );
+    console.log(`[TIPS] Pastikan MinIO sudah dikonfigurasi untuk Redis target.`);
+  }
 };

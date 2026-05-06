@@ -8,12 +8,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { videos } from "./videos";
 import { codecTypeEnum, formatTypeEnum, protocolTypeEnum } from "./enums";
+import { qualityPresets } from "./quality-presets";
 
 export const videoAssets = pgTable("video_assets", {
   id: uuid("id").primaryKey().defaultRandom(),
   videoId: uuid("video_id")
     .notNull()
     .references(() => videos.id),
+  presetId: uuid("preset_id").references(() => qualityPresets.id),
   jobId: uuid("job_id"),
   codec: codecTypeEnum("codec").notNull(),
   format: formatTypeEnum("format").notNull(),

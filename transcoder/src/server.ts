@@ -3,6 +3,7 @@ import { verifyFfmpegInstallation } from "./loaders/ffmpeg";
 import { connectPostgres } from "./loaders/postgres";
 import { redisMain } from "./loaders/redis";
 import { env } from "./config/env";
+import os from "os";
 import {
   listenUploadQueue,
   listenTranscodeQueue,
@@ -33,8 +34,13 @@ const startApp = async () => {
     console.log("==================================================");
 
     listenUploadQueue();
-    const TRANSCODE_WORKER_COUNT = 3;
-    for (let i = 1; i <= TRANSCODE_WORKER_COUNT; i++) {
+
+    const workerCount = env.TRANSCODE_WORKER_COUNT;
+    console.log(
+      `⚙️  Menyalakan ${workerCount} transcode worker` +
+      ` (CPU: ${os.cpus().length} core, Host: ${os.hostname()})...`
+    );
+    for (let i = 1; i <= workerCount; i++) {
       listenTranscodeQueue(`worker-transcode-${i}`);
     }
   } catch (error) {
