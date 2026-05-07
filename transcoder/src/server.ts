@@ -6,7 +6,7 @@ import { env } from "./config/env";
 import os from "os";
 import {
   listenUploadQueue,
-  listenTranscodeQueue,
+  startTranscodeWorker,
 } from "./modules/transcode-jobs/transcode-jobs.controller";
 
 const startApp = async () => {
@@ -36,13 +36,8 @@ const startApp = async () => {
     listenUploadQueue();
 
     const workerCount = env.TRANSCODE_WORKER_COUNT;
-    console.log(
-      `⚙️  Menyalakan ${workerCount} transcode worker` +
-      ` (CPU: ${os.cpus().length} core, Host: ${os.hostname()})...`
-    );
-    for (let i = 1; i <= workerCount; i++) {
-      listenTranscodeQueue(`worker-transcode-${i}`);
-    }
+    
+    startTranscodeWorker(workerCount);
   } catch (error) {
     console.error("\n❌ TERJADI KESALAHAN FATAL SAAT INISIALISASI:", error);
     process.exit(1);

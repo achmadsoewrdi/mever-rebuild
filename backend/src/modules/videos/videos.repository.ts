@@ -1,4 +1,4 @@
-import { eq, ilike, and, desc, inArray, exists } from "drizzle-orm";
+import { eq, ilike, and, desc, inArray, exists, ne } from "drizzle-orm";
 import { db } from "../../loaders";
 import { videos, videoAssets } from "../../../drizzle/schema";
 import { VideoFilterInput } from "./videos.schema";
@@ -19,6 +19,9 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
 
   if (status) {
     whereConditions.push(eq(videos.status, status));
+  } else {
+    // Sembunyikan video yang gagal (error) dari daftar utama
+    whereConditions.push(ne(videos.status, "failed"));
   }
   if (search) {
     whereConditions.push(ilike(videos.title, `%${search}%`));

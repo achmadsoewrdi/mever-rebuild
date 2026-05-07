@@ -7,6 +7,7 @@ export const redisConfig: RedisOptions = {
   port: parseInt(env.REDIS_PORT, 10),
   password: env.REDIS_PASS,
   retryStrategy: (times: number) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: null,
 };
 
 /**

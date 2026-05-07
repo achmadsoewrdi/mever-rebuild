@@ -85,12 +85,12 @@ export const requestUpload = async (
 
   return {
     video: newVideo,
-    uploadUrl: presignedUrl, // bug fix: typo "upladUrl" → "uploadUrl"
+    uploadUrl: presignedUrl,
   };
 };
 
 export const confirmUpload = async (videoId: string): Promise<void> => {
-  await updateVideoStatus(videoId, "ready");
+  await updateVideoStatus(videoId, "queued");
 
   // Hapus cache list videos dan cache detail video
   await invalidateVideosCache();
