@@ -60,13 +60,13 @@
 			bind:value
 			class={cn(
 				'w-full rounded-md border text-sm shadow-sm transition-all duration-200',
-				'text-slate-900 dark:text-slate-100',
-				'placeholder:text-slate-400 dark:placeholder:text-border-base/50',
+				'text-text-main',
+				'placeholder:text-text-muted',
 				'disabled:cursor-not-allowed disabled:opacity-50',
 				'focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none',
 				variant === 'outline'
-					? 'border-slate-200 bg-white dark:border-slate-500/20 dark:bg-slate-500/5'
-					: 'border-transparent bg-slate-50 focus:bg-white dark:bg-slate-500/10 dark:focus:bg-slate-500/5',
+					? 'border-border-base bg-transparent'
+					: 'border-transparent bg-bg-surface focus:bg-bg-secondary autofill-fix',
 				leadingIcon ? 'pl-11' : 'pl-4',
 				trailingIcon || type === 'password' ? 'pr-11' : 'pr-4',
 				'h-11 py-2',

@@ -8,10 +8,18 @@
 
 	interface Props {
 		userName?: string;
-		userInitials?: string;
 	}
 
-	let { userName = 'ISR Guest', userInitials = 'IG' }: Props = $props();
+	let { userName = 'ISR Guest' }: Props = $props();
+
+	let userInitials = $derived(
+		userName
+			.split(' ')
+			.map((n) => n[0])
+			.join('')
+			.toUpperCase()
+			.substring(0, 2)
+	);
 
 	let isDropdownOpen = $state(false);
 	let isDarkMode = $state(false);
@@ -36,7 +44,6 @@
 <nav
 	class="flex h-16 w-full items-center justify-between border-b-2 border-slate-200 bg-white px-6 dark:border-border-base/50 dark:bg-bg-secondary"
 >
-	<!-- Kiri: Logo MEVER (Sesuai import) -->
 	<div class="flex items-center">
 		<img src={meverLogo} alt="MEVER Logo" class="h-10 w-auto" />
 	</div>
