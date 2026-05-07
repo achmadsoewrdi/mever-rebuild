@@ -4,7 +4,6 @@ import { createRedisConnection, redisMain } from "../../loaders/redis";
 import { env } from "../../config/env";
 import { generateUniqueSlug } from "../../utils/slug";
 import { parseObjectName } from "../../utils/object-name-formatter";
-import { getResolutionByRule } from "../../utils/resolution-rules";
 import { getProtocol } from "../../utils/protocol-rules";
 import { ffmpeg } from "../../loaders/ffmpeg";
 
@@ -32,6 +31,7 @@ import {
   updateJobProgress,
   setJobCompleted,
   setJobFailed,
+  getActiveQualityPresets,
   CreateJobData,
 } from "./transcode-jobs.repository";
 
@@ -64,7 +64,7 @@ const invalidateVideosCache = async (videoId?: string) => {
  */
 const getVideoMetadata = (
   filePath: string,
-): Promise<{ height: number; duration: number; size: number }> => {
+): Promise<{ height: number; duration: number; size: number; codec: string; formatName: string }> => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) return reject(err);
@@ -81,6 +81,8 @@ const getVideoMetadata = (
         height: videoStream.height,
         duration: Math.round(metadata.format.duration || 0),
         size: metadata.format.size || 0,
+        codec: videoStream.codec_name || "h264",
+        formatName: metadata.format.format_name || "mp4",
       });
     });
   });
@@ -126,9 +128,11 @@ export const listenUploadQueue = async () => {
       // Karena Backend sudah membuat record sebelum upload
       // ---------------------------------------------------------------
       let videoData = await findVideoBySourcePath(rawPath);
-      
+
       if (!videoData) {
-        console.log(`[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`);
+        console.log(
+          `[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`,
+        );
         videoData = await createVideo({
           title: parsedName.baseName,
           slug: slug,
@@ -165,13 +169,13 @@ export const listenUploadQueue = async () => {
       );
 
       // ---------------------------------------------------------------
-      // Analisis metadata video (Resolusi, Durasi, Ukuran)
+      // Analisis metadata video (Resolusi, Durasi, Ukuran, Codec, Format)
       // ---------------------------------------------------------------
       const metadata = await getVideoMetadata(localSourcePath);
-      const { height, duration, size } = metadata;
+      const { height, duration, size, codec, formatName } = metadata;
 
       console.log(
-        `[UPLOAD WORKER] Metadata: ${height}p | ${duration}s | ${Math.round(size / 1024 / 1024)}MB`,
+        `[UPLOAD WORKER] Metadata: ${height}p | ${duration}s | ${Math.round(size / 1024 / 1024)}MB | Codec: ${codec} | Format: ${formatName}`,
       );
 
       // Update metadata ke database
@@ -201,54 +205,112 @@ export const listenUploadQueue = async () => {
       await fs.unlink(thumbnailPath);
 
       // ---------------------------------------------------------------
-      // Menentukan daftar resolusi target berdasarkan aturan bisnis
-      // Aturan: Jika video >= 720p → pecah ke beberapa resolusi (720p, 480p, 360p)
-      //         Jika video < 720p  → render satu resolusi saja (resolusi aslinya)
+      // Tentukan daftar resolusi target berdasarkan preset dari database
       // ---------------------------------------------------------------
-      const targetResolutions = getResolutionByRule(height);
+      const activePresets = await getActiveQualityPresets();
+
+      if (activePresets.length === 0) {
+        console.warn("[UPLOAD WORKER] Peringatan: Tidak ada quality preset yang aktif di database!");
+      }
 
       // ---------------------------------------------------------------
-      // Tentukan Codec & Packager (Prioritas: User Choice > Default Env)
+      // KONSTRUKSI DISTRIBUTION SUITE BERDASARKAN PRESET
       // ---------------------------------------------------------------
-      const codec = videoData.targetCodec || env.DEFAULT_CODEC;
-      // Jika user tidak memilih protocol, gunakan getProtocol untuk menentukan otomatis berdasarkan codec
-      const packager = videoData.targetProtocol || getProtocol(codec, env.DEFAULT_PACKAGER);
+      const jobsToInsert: CreateJobData[] = [];
+      const jobMessages: any[] = [];
 
-      console.log(`[UPLOAD WORKER] Menggunakan Codec: ${codec} | Protocol: ${packager}`);
+      const getExtension = (formatStr: string) => {
+        const fmt = formatStr?.toLowerCase() || "";
+        if (fmt.includes("hls")) return "m3u8";
+        if (fmt.includes("dash")) return "mpd";
+        if (fmt.includes("webm")) return "webm";
+        if (fmt.includes("mkv")) return "mkv";
+        return "mp4";
+      };
 
-      // Tentukan ekstensi file berdasarkan jenis packager
-      const extension =
-        packager === "hls" ? ".m3u8" : packager === "dash" ? ".mpd" : ".mp4";
+      // Helper untuk ekstrak tinggi (height) dari string resolusi (misal "1080p" -> 1080, "4k" -> 2160)
+      const parseResolutionHeight = (resString: string | null) => {
+        if (!resString) return 0;
+        const lower = resString.toLowerCase();
+        if (lower === "4k") return 2160;
+        if (lower === "2k") return 1440;
+        return parseInt(lower.replace(/\D/g, ""), 10) || 0;
+      };
 
-      const jobsToInsert: CreateJobData[] = targetResolutions.map((res) => ({
-        videoId: videoData.id,
-        codec: codec,
-        packager: packager,
-        resolution: res.name,
-        outputFilename: `${slug}-${res.name}${extension}`,
-      }));
+      // 1. Urutkan preset dari resolusi tertinggi ke terendah
+      const sortedPresets = [...activePresets].sort((a, b) => {
+        return parseResolutionHeight(b.resolution) - parseResolutionHeight(a.resolution);
+      });
+
+      // 2. Cari index preset pertama yang tingginya <= tinggi video sumber (kasih toleransi 50px)
+      const closestIndex = sortedPresets.findIndex((preset) => {
+        return parseResolutionHeight(preset.resolution) <= height + 50;
+      });
+
+      let finalPresetsToRender: any[] = [];
+
+      if (closestIndex === -1) {
+        // Jika video SANGAT KECIL (lebih kecil dari preset terkecil sekalipun)
+        // Paksa ambil 1 preset yang paling kecil agar tetap bisa diputar
+        finalPresetsToRender = sortedPresets.length > 0 ? [sortedPresets[sortedPresets.length - 1]] : [];
+      } else {
+        // 3. Terapkan aturan batas jumlah downscale
+        if (height < 720) {
+          // Jika video di bawah 720p (misal 480p atau 360p), JANGAN downscale lagi. Ambil 1 saja.
+          finalPresetsToRender = sortedPresets.slice(closestIndex, closestIndex + 1);
+        } else {
+          // Jika video 720p ke atas, ambil preset aslinya + MAKSIMAL 2 preset di bawahnya (Total 3)
+          // Contoh 1080p -> 1080p, 720p, 480p
+          // Contoh 4K -> 4K, 1440p, 1080p (berhenti di 1080p, tidak lanjut ke 720p/480p)
+          finalPresetsToRender = sortedPresets.slice(closestIndex, closestIndex + 3);
+        }
+      }
+
+      for (const preset of finalPresetsToRender) {
+        const outputFilename = `${slug}-${preset.name}.${getExtension(preset.format || "mp4")}`;
+        
+        jobsToInsert.push({
+          videoId: videoData.id,
+          presetId: preset.id,
+          outputFilename,
+        });
+
+        const packagerFormat = preset.format?.toLowerCase() || "";
+        const packager = packagerFormat.includes("hls") ? "hls" : packagerFormat.includes("dash") ? "dash" : "plain";
+        const resolutionHeight = parseResolutionHeight(preset.resolution) || 720;
+
+        jobMessages.push({
+          videoId: videoData.id,
+          presetId: preset.id,
+          sourcePath: rawPath,
+          localSourcePath: localSourcePath,
+          outputFilename: outputFilename,
+          codec: preset.codec || "h264",
+          resolutionName: preset.name,
+          resolutionHeight: resolutionHeight,
+          packager: packager,
+          slug: slug,
+        });
+      }
+
+      console.log(
+        `[UPLOAD WORKER] Generating Distribution Suite: ${jobsToInsert.length} jobs based on active presets.`,
+      );
 
       // Simpan semua job ke database dan perbarui total job di record video
-      const createdJobs = await createManyJobs(jobsToInsert);
+      let createdJobs: any[] = [];
+      if (jobsToInsert.length > 0) {
+        createdJobs = await createManyJobs(jobsToInsert);
+      }
+      
       await updateVideoTotalJobs(videoData.id, createdJobs.length);
       await updateVideoStatus(videoData.id, "processing");
 
-      for (const job of createdJobs) {
-        if (!job.resolution) continue;
-
-        const jobMessage = {
-          jobId: job.id,
-          videoId: videoData.id,
-          sourcePath: rawPath,
-          localSourcePath: localSourcePath,
-          totalJobs: createdJobs.length,
-          outputFilename: job.outputFilename,
-          codec: job.codec,
-          resolutionName: job.resolution,
-          resolutionHeight: parseInt(job.resolution.replace("p", ""), 10),
-          packager: job.packager,
-          slug: slug,
-        };
+      for (let i = 0; i < createdJobs.length; i++) {
+        const job = createdJobs[i];
+        const jobMessage = jobMessages[i];
+        jobMessage.jobId = job.id;
+        jobMessage.totalJobs = createdJobs.length;
 
         await redisMain.lpush(
           env.REDIS_QUEUE_TRANSCODE_KEY,
@@ -293,6 +355,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
       const {
         jobId,
         videoId,
+        presetId,
         sourcePath,
         outputFilename,
         codec,
@@ -311,7 +374,7 @@ export const listenTranscodeQueue = async (workerId: string) => {
         `\n[${workerId}] Memulai render — Job: ${jobId} | Resolusi: ${resolutionName}`,
       );
       await updateJobStatus(jobId, "processing", workerId);
-      
+
       // Invalidate cache agar status 'processing' terlihat di dashboard
       await invalidateVideosCache(videoId);
 
@@ -356,6 +419,47 @@ export const listenTranscodeQueue = async (workerId: string) => {
       );
 
       // ---------------------------------------------------------------
+      // POST-PROCESS: Perbaiki path absolut Windows di manifest .mpd
+      // ---------------------------------------------------------------
+      // FFmpeg di Windows kadang menulis path absolut (D:\...\temp\) ke dalam
+      // template segmen di manifest .mpd, sehingga browser mencoba akses
+      // file:/// lokal alih-alih URL MinIO yang benar.
+      // Solusi: Strip semua path absolut, sisakan hanya nama file.
+      if (packager === "dash" && outputFilename.endsWith(".mpd")) {
+        try {
+          let mpdContent = await fs.readFile(localOutputPath, "utf-8");
+
+          // Ganti path Windows (baik dengan \ maupun /) dengan string kosong
+          // agar hanya nama file yang tersisa di dalam template segmen.
+          // Contoh: D:/MAGANG/.../temp/video-chunk → video-chunk
+          //         D:\MAGANG\...\temp\video-chunk → video-chunk
+          const normalizedTempDir = tempDir.replace(/\\/g, "/");
+          const escapedForwardSlash = normalizedTempDir.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&",
+          );
+          const escapedBackslash = tempDir
+            .replace(/\\/g, "\\\\")
+            .replace(/[.*+?^${}()|[\]]/g, "\\$&");
+
+          // Hapus tempDir prefix (forward slash maupun backslash)
+          mpdContent = mpdContent
+            .replace(new RegExp(escapedForwardSlash + "/", "g"), "")
+            .replace(new RegExp(escapedBackslash + "\\\\", "g"), "");
+
+          await fs.writeFile(localOutputPath, mpdContent, "utf-8");
+          console.log(
+            `[DASH] Berhasil memperbaiki path di manifest MPD: ${outputFilename}`,
+          );
+        } catch (fixErr: any) {
+          console.warn(
+            `[DASH] Gagal memperbaiki path MPD (non-fatal):`,
+            fixErr.message,
+          );
+        }
+      }
+
+      // ---------------------------------------------------------------
       // LANGKAH 3: Unggah hasil render (manifest) ke bucket publik MinIO
       // ---------------------------------------------------------------
       const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
@@ -373,11 +477,18 @@ export const listenTranscodeQueue = async (workerId: string) => {
         const segmentPrefix = `${slug}-${resolutionName}`;
 
         for (const file of files) {
-          // Identifikasi apakah file ini adalah bagian dari streaming (ts untuk HLS, chunk/init untuk DASH)
-          const isHlsSegment = packager === "hls" && file.startsWith(segmentPrefix) && file.endsWith(".ts");
-          const isDashSegment = packager === "dash" && file.startsWith(segmentPrefix) && (file.includes("chunk-stream") || file.includes("init-stream"));
+          // Identifikasi apakah file ini adalah bagian dari streaming
+          const isHlsSegment =
+            packager === "hls" &&
+            file.startsWith(segmentPrefix) &&
+            file.endsWith(".ts");
+          const isDashFmp4Segment =
+            packager === "dash" &&
+            file.startsWith(segmentPrefix) &&
+            (file.includes("chunk-stream") || file.includes("init-stream")) &&
+            (file.endsWith(".m4s") || file.endsWith(".webm"));
 
-          if (isHlsSegment || isDashSegment) {
+          if (isHlsSegment || isDashFmp4Segment) {
             const minioSegPath = `videos/${slug}/${resolutionName}/${file}`;
 
             await uploadToMinio(
@@ -398,9 +509,11 @@ export const listenTranscodeQueue = async (workerId: string) => {
       const protocol = getProtocol(codec, packager);
       const newAsset = await createAsset({
         videoId,
+        presetId,
         jobId,
         codec,
-        format: packager === "hls" ? "mp4" : "webm",
+        format:
+          packager === "dash" ? "mpd" : packager === "hls" ? "m3u8" : "mp4",
         protocol,
         resolution: resolutionName,
         manifestUrl: `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${minioOutputPath}`,

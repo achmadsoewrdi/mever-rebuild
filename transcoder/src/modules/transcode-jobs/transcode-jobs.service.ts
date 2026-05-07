@@ -1,3 +1,4 @@
+import path from "path";
 import { minioClient } from "../../loaders/minio";
 import { ffmpeg } from "../../loaders/ffmpeg";
 import { getBestEncoder } from "../../utils/hardware-acceleration";
@@ -103,53 +104,76 @@ export const transcodeVideo = async (
   console.log(
     `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec}`,
   );
+  const outputDir = path.dirname(outputPath);
 
-  const runFfmpeg = (selectedCodec: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
+  const runFfmpeg = (selectedCodec: string) => {
+    return new Promise<void>((resolve, reject) => {
       let command = ffmpeg(sourcePath);
-      command = command.videoCodec(selectedCodec);
-      command = command.audioCodec("aac");
+
+      // Untuk DASH, paksa CPU encoder agar kontainer fMP4 terjamin.
+      // Hardware encoder (QSV/NVENC) dengan fluent-ffmpeg kadang menghasilkan
+      // segmen .webm padahal ekstensi .m4s — ini yang menyebabkan MEDIA_ERR_DECODE.
+      const effectiveCodec =
+        packager === "dash" && (selectedCodec.includes("qsv") || selectedCodec.includes("nvenc") || selectedCodec.includes("amf"))
+          ? codec === "h264" ? "libx264"
+          : codec === "h265" || codec === "hevc" ? "libx265"
+          : selectedCodec
+          : selectedCodec;
+
+      // Gunakan Opus untuk VP9 agar kompatibilitas dekoder lebih baik, selain itu pakai AAC
+      const audioCodec = effectiveCodec.includes("vp9") ? "libopus" : "aac";
+
+      command = command.videoCodec(effectiveCodec);
+      command = command.audioCodec(audioCodec);
       command = command.size(`?x${resolutionHeight}`);
 
-      // GPU Encoders usually have different preset names
-      if (selectedCodec.includes("nvenc")) {
-        command = command
-          .addOption("-preset", "fast") // Menggunakan nama preset lama (fast/medium/slow) untuk kompatibilitas
-          .addOption("-rc", "vbr")
-          .addOption("-cq", "23");
-      } else if (selectedCodec.includes("qsv")) {
-        command = command
-          .addOption("-preset", "veryfast")
-          .addOption("-global_quality", "23");
-      } else if (selectedCodec.includes("amf")) {
+      // Preset per encoder
+      if (effectiveCodec.includes("nvenc")) {
+        command = command.addOption("-preset", "fast").addOption("-rc", "vbr").addOption("-cq", "23");
+      } else if (effectiveCodec.includes("qsv")) {
+        command = command.addOption("-preset", "veryfast").addOption("-global_quality", "23");
+      } else if (effectiveCodec.includes("amf")) {
         command = command.addOption("-quality", "balanced");
       } else {
-        // Default CPU (libx264/libx265)
-        command = command
-          .addOption("-preset", "veryfast")
-          .addOption("-crf", "23");
+        // CPU encoder (libx264/libx265)
+        command = command.addOption("-preset", "veryfast").addOption("-crf", "23");
       }
 
-      command = command
-        .addOption("-threads", "0")
-        .addOption("-movflags", "+faststart");
+      // Paksa 8-bit yuv420p agar dapat diputar di semua browser
+      // GOP 50 frame (~2 detik di 25fps) agar segmen streaming selalu dimulai keyframe
+      command = command.addOption("-pix_fmt", "yuv420p").addOption("-g", "50").addOption("-threads", "0");
 
       if (packager === "hls") {
         command = command
           .addOption("-hls_time", "10")
           .addOption("-hls_list_size", "0")
+          .addOption("-hls_segment_filename", path.join(outputDir, `${segmentPrefix}-%05d.ts`))
           .addOption("-f", "hls");
       } else if (packager === "dash") {
+        const isVp9Like = effectiveCodec.includes("vp9") || effectiveCodec.includes("vp8") || effectiveCodec.includes("av1");
+        const segmentExt = isVp9Like ? "webm" : "m4s";
+        const segmentType = isVp9Like ? "webm" : "mp4";
+
         command = command
+          .addOption("-movflags", "frag_keyframe+empty_moov+default_base_moof")
           .addOption("-use_template", "1")
           .addOption("-use_timeline", "1")
           .addOption("-seg_duration", "10")
-          // Gunakan prefix agar tidak berantakan di root
-          .addOption("-init_seg_name", `${segmentPrefix}-init-stream$RepresentationID$.$ext$`)
-          .addOption("-media_seg_name", `${segmentPrefix}-chunk-stream$RepresentationID$-$Number%05d$.$ext$`)
+          .addOption("-dash_segment_type", segmentType)
+          .addOption("-init_seg_name", path.join(outputDir, `${segmentPrefix}-init-stream$RepresentationID$.${segmentExt}`))
+          .addOption("-media_seg_name", path.join(outputDir, `${segmentPrefix}-chunk-stream$RepresentationID$-$Number%05d$.${segmentExt}`))
+          .addOption("-adaptation_sets", "id=0,streams=v id=1,streams=a")
           .addOption("-f", "dash");
       } else {
-        command = command.addOption("-f", "mp4");
+        // plain: pilih format kontainer berdasarkan codec
+        // VP9/AV1 → WebM | H.265 → MKV | H.264 → MP4
+        if (effectiveCodec.includes("vp9") || effectiveCodec.includes("vp8") || effectiveCodec.includes("av1")) {
+          command = command.addOption("-f", "webm");
+        } else if (effectiveCodec.includes("x265") || effectiveCodec.includes("hevc")) {
+          command = command.addOption("-f", "matroska"); // MKV
+        } else {
+          command = command.addOption("-movflags", "+faststart").addOption("-f", "mp4");
+        }
       }
 
       command
@@ -176,6 +200,7 @@ export const transcodeVideo = async (
     });
   };
 
+
   try {
     await runFfmpeg(bestCodec);
   } catch (err: any) {
@@ -194,7 +219,13 @@ export const transcodeVideo = async (
           ? "libx264"
           : codec === "h265" || codec === "hevc"
             ? "libx265"
-            : codec;
+            : codec === "vp9"
+              ? "libvpx-vp9"
+              : codec === "vp8"
+                ? "libvpx"
+                : codec === "av1"
+                  ? "libsvtav1"
+                  : codec;
       await runFfmpeg(fallbackCodec);
     } else {
       console.error(`[FFMPEG TRANSCODE ERROR] Gagal merender:`, err.message);

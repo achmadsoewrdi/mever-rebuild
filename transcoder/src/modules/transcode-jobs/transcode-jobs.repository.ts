@@ -1,16 +1,22 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
-import { transcodeJobs } from "../../../drizzle/schema";
+import { transcodeJobs, qualityPresets } from "../../../drizzle/schema";
 
 export type CreateJobData = {
   videoId: string;
+  presetId: string;
   outputFilename: string;
-  codec: string;
-  resolution: string;
-  packager: string;
 };
 
 type JobStatus = "queued" | "processing" | "completed" | "failed";
+
+export const getActiveQualityPresets = async () => {
+  return await db
+    .select()
+    .from(qualityPresets)
+    .where(eq(qualityPresets.isActive, true))
+    .orderBy(desc(qualityPresets.bitrateKbps));
+};
 
 export const createManyJobs = async (jobs: CreateJobData[]) => {
   return await db.insert(transcodeJobs).values(jobs).returning();

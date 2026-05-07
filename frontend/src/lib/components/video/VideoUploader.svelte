@@ -3,33 +3,17 @@
 	import { Button, Input } from '$lib/components/ui/index';
 	import { Upload, CircleCheck, PlayCircle, Loader2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
-	import type { VideoProtocol } from '$lib/types/video.types';
-	import { cn } from '$lib/utils/cn';
 
 	const uploader = new VideoUploader();
 
 	// Form States
 	let file = $state<File | null>(null);
 	let title = $state('');
-	let protocol = $state<VideoProtocol>('hls');
-	let resolution = $state('FHD');
-	let packager = $state('MP4');
 
 	// Metadata States
 	let isDetecting = $state(false);
 	let sourceWidth = $state(0);
 	let sourceHeight = $state(0);
-
-	const protocols: VideoProtocol[] = ['hls', 'dash', 'plain'];
-	const resolutions = [
-		{ id: '4k', label: '2160p', height: 2160 },
-		{ id: 'QHD', label: '1440p', height: 1440 },
-		{ id: 'FHD', label: '1080p', height: 1080 },
-		{ id: 'HD', label: '720p', height: 720 },
-		{ id: 'SD', label: '480p', height: 480 },
-		{ id: 'LD', label: '360p', height: 360 }
-	];
-	const packagers = ['MP4', 'WebM', 'MKV'];
 
 	// Fungsi Pendeteksi Metadata Video
 	async function handleFileChange(e: Event) {
@@ -52,11 +36,6 @@
 			URL.revokeObjectURL(video.src);
 			sourceWidth = video.videoWidth;
 			sourceHeight = video.videoHeight;
-
-			// Pilih resolusi default terbaik (jangan melebihi aslinya)
-			const bestRes = resolutions.find((r) => sourceHeight >= r.height);
-			if (bestRes) resolution = bestRes.id;
-
 			isDetecting = false;
 		};
 	}
@@ -64,9 +43,7 @@
 	async function startUpload() {
 		if (!file || !title) return;
 		await uploader.upload(file, {
-			title,
-			targetCodec: protocol === 'dash' ? 'vp9' : 'h264',
-			targetProtocol: protocol
+			title
 		});
 	}
 </script>
@@ -112,7 +89,7 @@
 		</div>
 
 		<!-- Configuration Grid -->
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-6">
 			<!-- Video Title -->
 			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
 				<Input
@@ -121,78 +98,6 @@
 					placeholder="e.g Marvel Cinematic Universe"
 					class="mt-2"
 				/>
-			</div>
-
-			<!-- Protocols -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase"
-					>Protocols</span
-				>
-				<div class="flex flex-wrap gap-2">
-					{#each protocols as p (p)}
-						<button
-							onclick={() => (protocol = p)}
-							class={cn(
-								'rounded-full border px-6 py-2 text-xs font-bold uppercase transition-all',
-								protocol === p
-									? 'border-primary bg-primary text-white shadow-lg shadow-primary/20'
-									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
-							)}
-						>
-							{p}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Resolution (SMART FILTERING) -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase">
-					Target Resolution {#if sourceHeight > 0}(Max: {sourceHeight}p){/if}
-				</span>
-				<div class="grid grid-cols-3 gap-2">
-					{#each resolutions as res (res.id)}
-						{@const isLocked = file && sourceHeight < res.height}
-						<button
-							onclick={() => !isLocked && (resolution = res.id)}
-							disabled={isLocked}
-							class={cn(
-								'flex flex-col items-center rounded-xl border py-2.5 transition-all',
-								resolution === res.id
-									? 'border-primary bg-primary/10 text-primary'
-									: 'border-border-base bg-bg-surface/30 text-text-muted hover:border-text-sub',
-								isLocked && 'cursor-not-allowed opacity-20 grayscale'
-							)}
-						>
-							<span class="text-[10px] font-black uppercase">{res.id}</span>
-							<span class="text-[9px] font-medium opacity-70"
-								>{isLocked ? 'Locked' : res.label}</span
-							>
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Packagers -->
-			<div class="rounded-2xl border border-border-base bg-bg-secondary p-6 shadow-sm">
-				<span class="mb-4 block text-[10px] font-black tracking-widest text-text-muted uppercase"
-					>Packagers</span
-				>
-				<div class="flex flex-wrap gap-2">
-					{#each packagers as pkg (pkg)}
-						<button
-							onclick={() => (packager = pkg)}
-							class={cn(
-								'rounded-full border px-6 py-2 text-xs font-bold uppercase transition-all',
-								packager === pkg
-									? 'border-primary bg-primary text-white shadow-md shadow-primary/10'
-									: 'border-border-base bg-bg-surface/50 text-text-sub hover:border-text-muted'
-							)}
-						>
-							{pkg}
-						</button>
-					{/each}
-				</div>
 			</div>
 		</div>
 
