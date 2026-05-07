@@ -1,5 +1,12 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { register, login, logout } from "./auth.service";
+import {
+  register,
+  login,
+  logout,
+  setupMFA,
+  verifyMFALogin,
+  verifyAndEnableMFA,
+} from "./auth.service";
 import { registerSchema, loginSchema } from "./auth.schema";
 import { SuccessResponse, errorResponse } from "../../utils/response";
 
@@ -76,5 +83,71 @@ export const handleLogout = async (
     reply.status(200).send(SuccessResponse(null, "Logout berhasil"));
   } catch (err) {
     reply.status(500).send(errorResponse("Terjadi kesalahan server"));
+  }
+};
+
+// ============================================
+//  HANDLER: POST /auth/mfa/setup
+// ============================================
+export const handleMfaSetup = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const userId = (request.user as any).sub; // Ambil ID admin dari token JWT
+  try {
+    const result = await setupMFA(userId);
+    reply.send(SuccessResponse(result, "MFA setup berhasil dibuat"));
+  } catch (err: any) {
+    reply.status(400).send(errorResponse(err.message));
+  }
+};
+
+// ============================================
+//  HANDLER: POST /auth/mfa/enable
+// ============================================
+export const handleMfaEnable = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const userId = (request.user as any).sub;
+  const { token } = request.body as { token: string }; // Ambil token 6 digit dari body
+
+  try {
+    await verifyAndEnableMFA(userId, token);
+    reply.send(SuccessResponse(null, "MFA berhasil diaktifkan"));
+  } catch (err: any) {
+    reply
+      .status(400)
+      .send(
+        errorResponse(
+          err.message === "INVALID_MFA_TOKEN"
+            ? "Kode OTP tidak valid"
+            : err.message,
+        ),
+      );
+  }
+};
+
+/**
+ * HANDLER: POST /auth/login/mfa
+ * Digunakan saat proses login kedua (setelah password benar tapi butuh OTP)
+ */
+
+// ============================================
+//  HANDLER: POST /auth/login/mfa
+// ============================================
+export const handleMfaLoginVerify = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const { userId, token } = request.body as { userId: string; token: string };
+
+  try {
+    const payload = await verifyMFALogin(userId, token);
+    const fullToken = await reply.jwtSign(payload); // Berikan Full JWT Token karena OTP sukses
+
+    reply.send(SuccessResponse({ token: fullToken }, "Login MFA berhasil"));
+  } catch (err: any) {
+    reply.status(401).send(errorResponse("Kode OTP salah atau kedaluwarsa"));
   }
 };
