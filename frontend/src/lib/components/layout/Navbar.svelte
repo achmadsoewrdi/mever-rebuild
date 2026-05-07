@@ -84,7 +84,12 @@
 					class="absolute top-12 right-0 z-50 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-border-base dark:bg-bg-elevated"
 				>
 					<div class="flex flex-col gap-1">
-						<Button variant="ghost" class="w-full justify-start gap-3 px-3">
+						<Button
+							variant="ghost"
+							href="/dashboard/settings"
+							onclick={() => (isDropdownOpen = false)}
+							class="w-full justify-start gap-3 px-3"
+						>
 							<User size={16} />
 							Edit Profile
 						</Button>
