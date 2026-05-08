@@ -42,6 +42,7 @@
 		"axios": "^1.15.2",
 		"clsx": "^2.1.1",
 		"lucide-svelte": "^1.0.1",
+		"qr-code-styling": "^1.9.2",
 		"svelte-sonner": "^1.1.1",
 		"sveltekit-superforms": "^2.30.1",
 		"tailwind-merge": "^3.5.0",

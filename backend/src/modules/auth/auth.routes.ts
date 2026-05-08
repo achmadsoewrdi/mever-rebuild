@@ -26,7 +26,7 @@ export const registerAuthRoutes = async (
 
   app.post("/auth/mfa/setup", { preHandler: authenticate }, handleMfaSetup);
   // 2. POST /auth/mfa/enable (Aktivasi MFA pertama kali - Butuh Login)
-  app.post("/auth/mfa/enable", { preHandler: authenticate }, handleMfaEnable);
+  app.post("/auth/mfa/enable", handleMfaEnable);
   // 3. POST /auth/login/mfa (Verifikasi OTP saat Login - Tanpa Auth)
   app.post("/auth/login/mfa", handleMfaLoginVerify);
 };

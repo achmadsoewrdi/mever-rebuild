@@ -50,6 +50,23 @@ export const handleLogin = async (
   }
   try {
     const result = await login(parsed.data);
+    
+    // Jika butuh setup MFA pertama kali (untuk Admin)
+    if ((result as any).mfaSetupRequired) {
+      return reply
+        .status(200)
+        .send(
+          SuccessResponse(
+            { 
+              mfaSetupRequired: true, 
+              userId: (result as any).userId, 
+              otpauthUrl: (result as any).otpauthUrl 
+            },
+            "Setup MFA diperlukan",
+          ),
+        );
+    }
+
     if (result.mfaRequired) {
       return reply
         .status(200)
@@ -109,12 +126,15 @@ export const handleMfaEnable = async (
   request: FastifyRequest,
   reply: FastifyReply,
 ) => {
-  const userId = (request.user as any).sub;
-  const { token } = request.body as { token: string }; // Ambil token 6 digit dari body
+  // Ambil userId dari body (untuk flow login) atau dari token (untuk flow settings)
+  const userId = (request.body as any).userId || (request.user as any)?.sub;
+  const { token } = request.body as { token: string };
 
   try {
-    await verifyAndEnableMFA(userId, token);
-    reply.send(SuccessResponse(null, "MFA berhasil diaktifkan"));
+    const result = await verifyAndEnableMFA(userId, token);
+    const fullToken = await reply.jwtSign(result.payload);
+    
+    reply.send(SuccessResponse({ token: fullToken }, "MFA berhasil diaktifkan"));
   } catch (err: any) {
     reply
       .status(400)
@@ -148,6 +168,6 @@ export const handleMfaLoginVerify = async (
 
     reply.send(SuccessResponse({ token: fullToken }, "Login MFA berhasil"));
   } catch (err: any) {
-    reply.status(401).send(errorResponse("Kode OTP salah atau kedaluwarsa"));
+    reply.status(401).send(errorResponse(err.message));
   }
 };

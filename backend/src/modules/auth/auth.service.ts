@@ -10,7 +10,6 @@ import { hashPassword, comparePassword } from "../../utils/hash";
 import { redisCache } from "../../loaders";
 import { RegisterDto, LoginDto, JwtPayload, LoginResult } from "./auth.types";
 import { generateSecret, verify, generateURI } from "otplib";
-import QRCode from "qrcode";
 
 // ============================================
 //  SERVICE: Auth
@@ -40,8 +39,32 @@ export const login = async (dto: LoginDto): Promise<LoginResult> => {
   if (!isValid) {
     throw new Error("INVALID_CREDENTIALS");
   }
-  if (user.role === "admin" && user.mfaEnabled) {
-    return { mfaRequired: true, userId: user.id };
+
+  // console.log("🔍 DEBUG LOGIN - User Data:", {
+  //   email: user.email,
+  //   role: user.role,
+  //   mfaEnabled: user.mfaEnabled
+  // });
+
+  if (user.role === "admin") {
+    if (user.mfaEnabled) {
+      return { mfaRequired: true, userId: user.id };
+    } else {
+      // Admin tapi belum aktifkan MFA -> Paksa Setup
+      const secret = generateSecret();
+      const otpauthUrl = generateURI({
+        issuer: "MEVER ADMIN",
+        label: user.email,
+        secret,
+      });
+      await updateMfaSecret(user.id, secret);
+
+      return {
+        mfaSetupRequired: true,
+        userId: user.id,
+        otpauthUrl,
+      } as any;
+    }
   }
   const payload: JwtPayload = {
     sub: user.id,
@@ -77,9 +100,8 @@ export const setupMFA = async (userId: string) => {
     secret,
   });
 
-  const qrCodeImage = await QRCode.toDataURL(otpauthUrl);
   await updateMfaSecret(userId, secret);
-  return { secret, qrCodeImage };
+  return { secret, otpauthUrl };
 };
 
 /**
@@ -102,7 +124,15 @@ export const verifyAndEnableMFA = async (userId: string, token: string) => {
   }
 
   await enableMfa(userId);
-  return { success: true };
+
+  const payload = {
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    jti: uuidv4(),
+  };
+
+  return { success: true, payload };
 };
 
 /**
@@ -115,22 +145,61 @@ export const verifyMFALogin = async (userId: string, token: string) => {
     throw new Error("MFA NOT ENABLED");
   }
 
+  // lockout key
+  const lockoutKey = `mfa:LockoutKay: ${userId}`;
+  const maxAttempts = 3;
+  const lockDuration = 600; //10 menit dalam hitungan detik
+
+  // cek apakah akun sedang di lock
+  const currentAttempts = await redisCache.get(lockoutKey);
+  const attemptsCount = currentAttempts ? parseInt(currentAttempts, 10) : 0;
+
+  if (attemptsCount >= maxAttempts) {
+    throw new Error("Account Locked Try Again in 10 minutes");
+  }
+
   // otplib bersifat async
   const result = await verify({
     token,
     secret: user.mfaSecretEnc,
   });
 
-  if (!result.valid) {
-    throw new Error("INVALID MFA TOKEN");
+  if (result.valid) {
+    // Bersihkan history kesalahan di Redis jika berhasil
+    await redisCache.del(lockoutKey);
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      jti: uuidv4(),
+    };
+
+    return payload;
   }
 
-  const payload: JwtPayload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    jti: uuidv4(),
-  };
+  // Jika gagal, hitung kesalahan
+  const newAttempts = attemptsCount + 1;
 
-  return payload;
+  if (newAttempts >= maxAttempts) {
+    // Jika sudah salah 3 kali, kunci selama 10 menit
+    await redisCache.set(
+      lockoutKey,
+      newAttempts.toString(),
+      "EX",
+      lockDuration,
+    );
+    throw new Error("Account Locked Try Again in 10 minutes");
+  } else {
+    // Jika belum sampai 3 kali, update jumlah salahnya
+    await redisCache.set(
+      lockoutKey,
+      newAttempts.toString(),
+      "EX",
+      lockDuration,
+    );
+    throw new Error(
+      `Invalid MFA Token. Remaining attempts: ${maxAttempts - newAttempts}`,
+    );
+  }
 };
