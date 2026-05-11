@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { LayoutDashboard, Film, Users, Sliders, User, LogOut } from 'lucide-svelte';
+	import { LayoutDashboard, Film, Users, Sliders, User, LogOut, Settings, HardDrive } from 'lucide-svelte';
 	import logoImage from '$lib/assets/image.png';
 
 	function isActive(path: string) {
@@ -82,6 +82,36 @@
 				{/if}
 				<Sliders size={20} />
 				Transcode Jobs
+			</a>
+
+			<!-- Quality Preset Management -->
+			<a
+				href="/admin/presets"
+				class="relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all
+				{isActive('/admin/presets')
+					? 'bg-[#FF1E4D] text-white'
+					: 'text-slate-600 hover:bg-slate-50 dark:text-text-muted dark:hover:bg-bg-elevated'}"
+			>
+				{#if isActive('/admin/presets')}
+					<div class="absolute top-2 bottom-2 left-2 w-1 rounded-full bg-white"></div>
+				{/if}
+				<Settings size={20} />
+				Quality Presets
+			</a>
+
+			<!-- Storage Config -->
+			<a
+				href="/admin/storage"
+				class="relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all
+				{isActive('/admin/storage')
+					? 'bg-[#FF1E4D] text-white'
+					: 'text-slate-600 hover:bg-slate-50 dark:text-text-muted dark:hover:bg-bg-elevated'}"
+			>
+				{#if isActive('/admin/storage')}
+					<div class="absolute top-2 bottom-2 left-2 w-1 rounded-full bg-white"></div>
+				{/if}
+				<HardDrive size={20} />
+				Storage Config
 			</a>
 		</nav>
 
