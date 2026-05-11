@@ -36,3 +36,13 @@ export const toggleUserStatus = async (userId: string, isActive: boolean) => {
     .returning();
   return result[0];
 };
+
+export const deleteUser = async (userId: string) => {
+  const result = await db.delete(users).where(eq(users.id, userId)).returning();
+  return result[0];
+};
+
+export const createUser = async (data: { name: string; email: string; passwordHash: string; role: "admin" | "user" }) => {
+  const result = await db.insert(users).values(data).returning();
+  return result[0];
+};
