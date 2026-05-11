@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, and, ilike, sql } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
 import { users } from "../../../drizzle/schema";
+import { videos } from "../../../drizzle/schema";
 
 /**
  * =====================
@@ -42,7 +43,98 @@ export const deleteUser = async (userId: string) => {
   return result[0];
 };
 
-export const createUser = async (data: { name: string; email: string; passwordHash: string; role: "admin" | "user" }) => {
+export const createUser = async (data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: "admin" | "user";
+}) => {
   const result = await db.insert(users).values(data).returning();
+  return result[0];
+};
+
+/**
+ * mengambil semua videi dengan pagination dan filter
+ */
+
+export const findAllVideos = async (
+  limit: number,
+  offser: number,
+  search?: string,
+  status?: string,
+) => {
+  const condition = [];
+
+  if (search) {
+    condition.push(ilike(videos.title, `%${search}%`));
+  }
+  if (status) {
+    condition.push(eq(videos.status, status as any));
+  }
+
+  const wherClause = condition.length > 0 ? and(...condition) : undefined;
+
+  const data = await db
+    .select()
+    .from(videos)
+    .where(wherClause)
+    .limit(limit)
+    .offset(offser)
+    .orderBy(sql`${videos.createdAt} DESC`);
+
+  const total = await db
+    .select({ count: sql`count(*)` })
+    .from(videos)
+    .where(wherClause);
+
+  return { data, total: Number(total[0].count) };
+};
+
+/**
+ * mengambil detail video berdasarkan id
+ */
+
+export const findVideoById = async (id: string) => {
+  const result = await db.select().from(videos).where(eq(videos.id, id));
+  return result[0];
+};
+
+/**
+ * mengubah data video (tittle, description, status, dll)
+ */
+
+export const updateVideo = async (
+  id: string,
+  data: Partial<typeof videos.$inferInsert>,
+) => {
+  const result = await db
+    .update(videos)
+    .set(data)
+    .where(eq(videos.id, id))
+    .returning();
+  return result[0];
+};
+
+/**
+ * soft delete video
+ */
+
+export const softDeleteVideo = async (id: string) => {
+  const result = await db
+    .update(videos)
+    .set({ status: "deleted" as any })
+    .where(eq(videos.id, id))
+    .returning();
+  return result[0];
+};
+
+/**
+ * Hard delete video dari database
+ */
+export const hardDeleteVideo = async (id: string) => {
+  const result = await db
+    .delete(videos)
+    .where(eq(videos.id, id))
+    .returning();
   return result[0];
 };

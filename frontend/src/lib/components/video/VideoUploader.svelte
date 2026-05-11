@@ -3,6 +3,10 @@
 	import { Button, Input } from '$lib/components/ui/index';
 	import { Upload, CircleCheck, PlayCircle, Loader2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
+	import { goto } from '$app/navigation';
+
+	// Props
+	let { libraryUrl = '/dashboard/videos' } = $props();
 
 	const uploader = new VideoUploader();
 
@@ -106,11 +110,7 @@
 			<Button
 				variant="secondary"
 				size="lg"
-				onclick={() => {
-					file = null;
-					title = '';
-					sourceHeight = 0;
-				}}
+				onclick={() => goto(libraryUrl)}
 			>
 				Cancel
 			</Button>
@@ -172,7 +172,7 @@
 						</p>
 					</div>
 					<div class="flex w-full flex-col gap-3 pt-4 sm:flex-row">
-						<Button href="/dashboard/videos" variant="secondary" class="flex-1"
+						<Button href={libraryUrl} variant="secondary" class="flex-1"
 							>Lihat Library</Button
 						>
 						<Button onclick={() => uploader.reset()} variant="primary" class="flex-1"

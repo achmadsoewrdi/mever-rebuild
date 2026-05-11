@@ -5,6 +5,10 @@ import {
   updateUserStatus,
   removeUser,
   createUser,
+  getAllVideos,
+  getVideoDetail,
+  editVideo,
+  removeVideo,
 } from "./admin.service";
 import { updateRoleSchema, updateStatusSchema, createUserSchema } from "./admin.types";
 import { SuccessResponse, errorResponse } from "../../utils/response";
@@ -131,5 +135,85 @@ export const handleCreateUser = async (
   } catch (err: any) {
     console.error("❌ Create user error:", err);
     reply.status(500).send(errorResponse("Terjadi kesalahan server"));
+  }
+};
+
+// ============================================
+//  HANDLER: GET /admin/videos
+// ============================================
+export const handleGetAllVideos = async (request: FastifyRequest, reply: FastifyReply) => {
+  const query = request.query as { page?: string; limit?: string; search?: string; status?: string };
+  
+  try {
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const limit = query.limit ? parseInt(query.limit, 10) : 10;
+    
+    const result = await getAllVideos({
+      page,
+      limit,
+      search: query.search,
+      status: query.status,
+    });
+    
+    reply.send(SuccessResponse(result, "Berhasil mengambil data video"));
+  } catch (err: any) {
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: GET /admin/videos/:id
+// ============================================
+export const handleGetVideoDetail = async (request: FastifyRequest, reply: FastifyReply) => {
+  const { id } = request.params as { id: string };
+  try {
+    const video = await getVideoDetail(id);
+    reply.send(SuccessResponse(video, "Berhasil mengambil detail video"));
+  } catch (err: any) {
+    if (err.message === "Video Not Found") {
+      return reply.status(404).send(errorResponse("Video tidak ditemukan"));
+    }
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: PUT /admin/videos/:id
+// ============================================
+export const handleUpdateVideo = async (request: FastifyRequest, reply: FastifyReply) => {
+  const { id } = request.params as { id: string };
+  const data = request.body as any;
+  try {
+    const updated = await editVideo(id, data);
+    reply.send(SuccessResponse(updated, "Berhasil memperbarui video"));
+  } catch (err: any) {
+    if (err.message === "Video Not Found") {
+      return reply.status(404).send(errorResponse("Video tidak ditemukan"));
+    }
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: DELETE /admin/videos/:id
+// ============================================
+export const handleDeleteVideo = async (request: FastifyRequest, reply: FastifyReply) => {
+  const { id } = request.params as { id: string };
+  const { hard } = request.query as { hard?: string };
+  const isHard = hard === "true";
+  
+  try {
+    const deleted = await removeVideo(id, isHard);
+    reply.send(
+      SuccessResponse(
+        deleted, 
+        isHard ? "Berhasil menghapus video secara permanen" : "Berhasil menghapus video (Soft Delete)"
+      )
+    );
+  } catch (err: any) {
+    if (err.message === "Video Not Found") {
+      return reply.status(404).send(errorResponse("Video tidak ditemukan"));
+    }
+    reply.status(500).send(errorResponse("Internal Server Error"));
   }
 };

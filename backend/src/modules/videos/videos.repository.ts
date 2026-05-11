@@ -20,8 +20,9 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
   if (status) {
     whereConditions.push(eq(videos.status, status));
   } else {
-    // Sembunyikan video yang gagal (error) dari daftar utama
+    // Sembunyikan video yang gagal (error) dan yang dihapus dari daftar utama
     whereConditions.push(ne(videos.status, "failed"));
+    whereConditions.push(ne(videos.status, "deleted" as any));
   }
   if (search) {
     whereConditions.push(ilike(videos.title, `%${search}%`));
