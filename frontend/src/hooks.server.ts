@@ -52,9 +52,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
+	// Proteksi Halaman Admin (Hanya boleh diakses oleh role === 'admin')
+	if (event.url.pathname.startsWith('/admin')) {
+		if (!event.locals.user) {
+			// Belum login, lempar ke login
+			throw redirect(303, '/auth/login');
+		}
+		if (event.locals.user.role !== 'admin') {
+			// Sudah login tapi bukan admin, lempar ke dashboard user
+			throw redirect(303, '/dashboard');
+		}
+	}
+
 	// Jika mau ke /login TAPI sudah login
 	if (event.url.pathname.startsWith('/auth/login') && event.locals.user) {
-		// Paksa langsung ke dashboard (biar tidak perlu login 2x)
+		// Jika admin, lempar ke /admin. Jika user, ke /dashboard
+		if (event.locals.user.role === 'admin') {
+			throw redirect(303, '/admin');
+		}
 		throw redirect(303, '/dashboard');
 	}
 

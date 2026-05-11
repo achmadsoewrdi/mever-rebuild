@@ -87,6 +87,20 @@
 		const maxAge = rememberMe ? 2592000 : 86400;
 		document.cookie = `auth_token=${token}; path=/; max-age=${maxAge}`;
 		toast.success('Login Berhasil');
+		
+		// Decode token untuk mengecek role
+		try {
+			const base64Payload = token.split('.')[1];
+			const payload = JSON.parse(atob(base64Payload));
+			
+			if (payload.role === 'admin') {
+				goto('/admin');
+				return;
+			}
+		} catch (error) {
+			console.error('Gagal mendecode token untuk redirect:', error);
+		}
+		
 		goto('/dashboard');
 	}
 </script>

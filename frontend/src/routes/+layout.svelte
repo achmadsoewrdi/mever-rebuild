@@ -2,7 +2,6 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
-	import { Moon, Sun } from 'lucide-svelte';
 
 	import { setContext } from 'svelte';
 	import { browser } from '$app/environment';
@@ -20,7 +19,9 @@
 
 	// Bagikan state ini ke seluruh aplikasi via Context
 	setContext('theme', {
-		get isDark() { return isDark; },
+		get isDark() {
+			return isDark;
+		},
 		toggle: () => {
 			isDark = !isDark;
 		}
@@ -40,19 +41,6 @@
 </svelte:head>
 
 <!-- Toggle Dark Mode — Fixed di pojok kanan atas -->
-<button
-	onclick={() => (isDark = !isDark)}
-	aria-label="Toggle dark mode"
-	class="fixed top-4 right-4 z-50 flex h-9 w-9 items-center justify-center rounded-md border
-	       border-border-base bg-bg-secondary text-text-sub shadow-sm transition-all
-	       hover:bg-bg-surface hover:text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
->
-	{#if isDark}
-		<Sun size={16} />
-	{:else}
-		<Moon size={16} />
-	{/if}
-</button>
 
 {@render children()}
 <ToastContainer />
