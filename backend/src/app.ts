@@ -7,6 +7,7 @@ import { registerVideoAssetsRoutes } from "./modules/video-assets/video-assets.r
 import { registerUserRoutes } from "./modules/users/users.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
 import { registerQualityPresetsRoutes } from "./modules/quality-presets/quality-presets.routes";
+import { registerStorageConfigsRoutes } from "./modules/storage-configs/storage-configs.routes";
 
 // ============================================
 //  BUILD APP
@@ -24,6 +25,7 @@ export const buildApp = async (): Promise<FastifyInstance> => {
   await app.register(registerUserRoutes, { prefix: "/users" });
   await app.register(adminRoutes);
   await registerQualityPresetsRoutes(app);
+  await registerStorageConfigsRoutes(app);
 
   return app;
 };
