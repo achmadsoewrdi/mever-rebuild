@@ -1,7 +1,7 @@
 import { eq, and, ilike, sql } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
 import { users } from "../../../drizzle/schema";
-import { videos } from "../../../drizzle/schema";
+import { videos, videoAssets, transcodeJobs } from "../../../drizzle/schema";
 
 /**
  * =====================
@@ -132,6 +132,13 @@ export const softDeleteVideo = async (id: string) => {
  * Hard delete video dari database
  */
 export const hardDeleteVideo = async (id: string) => {
+  // Hapus semua jobs terkait terlebih dahulu untuk menghindari constraint error
+  await db.delete(transcodeJobs).where(eq(transcodeJobs.videoId, id));
+  
+  // Hapus semua asset terkait (resolusi)
+  await db.delete(videoAssets).where(eq(videoAssets.videoId, id));
+
+  // Terakhir, hapus data utama dari tabel video
   const result = await db
     .delete(videos)
     .where(eq(videos.id, id))

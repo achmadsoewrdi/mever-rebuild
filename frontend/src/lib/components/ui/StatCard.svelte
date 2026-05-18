@@ -1,11 +1,10 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
-
 	// Menggunakan Svelte 5 Runes untuk Props
 	interface Props {
 		title: string;
 		value: string | number;
-		icon?: Component; // Menerima Icon dari Lucide
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		icon?: any; // Menerima Icon dari Lucide (eslint dinonaktifkan untuk baris ini)
 		description?: string;
 	}
 

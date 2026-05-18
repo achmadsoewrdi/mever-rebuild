@@ -7,6 +7,10 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
+	import { videoApi } from '$lib/api/videos.api';
+	import VideoPlayer from '$lib/components/video/VideoPlayer.svelte';
+	import type { VideoAsset } from '$lib/types/video.types';
+	import type { ApiResponse } from '$lib/types/api.types';
 
 	interface VideoData {
 		id: string;
@@ -21,6 +25,8 @@
 		doneJobs?: number;
 		targetCodec?: string;
 		targetProtocol?: string;
+		thumbnailUrl?: string;
+		assets?: VideoAsset[];
 	}
 
 	let videoId = $derived($page.params.id);
@@ -30,9 +36,13 @@
 	async function loadVideoDetail() {
 		loading = true;
 		try {
-			const res = await getVideo(videoId!);
-			if (res.data && res.data.data) {
-				video = res.data.data;
+			const [res, assetsRes] = await Promise.all([
+				getVideo(videoId!) as unknown as Promise<ApiResponse<VideoData>>,
+				videoApi.getVideoAssets(videoId!)
+			]);
+			if (res && res.data) {
+				video = res.data;
+				video!.assets = assetsRes.data || [];
 			}
 		} catch (err: unknown) {
 			console.error(err);
@@ -62,6 +72,34 @@
 				return 'default';
 		}
 	}
+
+	let selectedAssetId = $state<string>('');
+
+	const mainAsset = $derived(
+		video?.assets?.find((a) => a.id === selectedAssetId) || video?.assets?.[0]
+	);
+
+	$effect(() => {
+		if (video?.assets?.length && !selectedAssetId) {
+			selectedAssetId = video.assets[0].id;
+		}
+	});
+
+	function getAssetLabel(asset: VideoAsset) {
+		const height = asset.resolution.split('x')[1] || asset.resolution;
+		const resLabel = height.includes('p') ? height : `${height}p`;
+		return asset.protocol === 'plain'
+			? `Plain (${resLabel})`
+			: `${asset.protocol.toUpperCase()} (${resLabel})`;
+	}
+	const videoSrc = $derived(mainAsset?.manifestUrl || '');
+	const videoType = $derived(
+		mainAsset?.protocol === 'dash'
+			? 'application/dash+xml'
+			: mainAsset?.protocol === 'hls'
+				? 'application/x-mpegURL'
+				: 'video/mp4'
+	);
 </script>
 
 <div class="space-y-6 px-6 py-6">
@@ -106,12 +144,20 @@
 					</div>
 				</div>
 
-				<div
-					class="flex aspect-video flex-col items-center justify-center rounded-lg border border-border-base bg-black text-white shadow-sm"
-				>
-					<Video size={48} class="mb-4 text-slate-600" />
-					<span class="text-sm text-slate-400">Video Player Area</span>
-					<span class="mt-1 text-xs text-slate-600">HLS Manifest URL akan diputar di sini</span>
+				<div class="overflow-hidden rounded-lg border border-border-base bg-black shadow-sm">
+					{#if videoSrc}
+						{#key selectedAssetId}
+							<VideoPlayer src={videoSrc} {videoType} poster={video.thumbnailUrl} />
+						{/key}
+					{:else}
+						<div
+							class="flex aspect-video flex-col items-center justify-center text-white"
+						>
+							<Video size={48} class="mb-4 text-slate-600" />
+							<span class="text-sm text-slate-400">Stream tidak tersedia</span>
+							<span class="mt-1 text-xs text-slate-600">Video belum diproses atau file rusak.</span>
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -180,6 +226,34 @@
 							>
 						</div>
 					</div>
+				</div>
+
+				<!-- Asset / Resolution Selector Card -->
+				<div class="space-y-4 rounded-lg border border-border-base bg-white p-6 shadow-sm dark:bg-bg-secondary">
+					<h3 class="flex items-center gap-2 font-bold text-text-main">
+						<Video size={16} class="text-text-sub" />
+						Available Assets
+					</h3>
+
+					{#if !video.assets || video.assets.length === 0}
+						<p class="text-sm text-text-sub">Belum ada aset resolusi yang tersedia.</p>
+					{:else}
+						<div class="flex flex-col gap-2">
+							{#each video.assets as asset (asset.id)}
+								<button
+									onclick={() => selectedAssetId = asset.id}
+									class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors {selectedAssetId === asset.id 
+										? 'border-primary bg-primary/5 text-primary' 
+										: 'border-border-base hover:bg-slate-50 dark:hover:bg-bg-surface text-text-main'}"
+								>
+									<span>{getAssetLabel(asset)}</span>
+									<span class="text-xs {selectedAssetId === asset.id ? 'text-primary' : 'text-text-sub'}">
+										{asset.codec}
+									</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -3,7 +3,7 @@ import {
   CreateStorageConfigInput,
   UpdateStorageConfigInput,
 } from "./storage-configs.schema";
-import { encrypt } from "../../utils/encrypt";
+import { encrypt, decrypt } from "../../utils/encrypt";
 
 // ============================================
 // SERVICE: Storage Configs
@@ -45,6 +45,24 @@ export const getConfigById = async (id: string) => {
     throw new Error("Konfigurasi tidak ditemukan");
   }
   return config;
+};
+
+/**
+ * Mengambil konfigurasi aktif dan mendekripsi secret key-nya
+ */
+export const getActiveConfigDecrypted = async () => {
+  const config = await repo.findActive();
+  if (!config) {
+    throw new Error("Tidak ada konfigurasi penyimpanan yang aktif");
+  }
+
+  // Dekripsi secret key
+  const secretKey = decrypt(config.secretKeyEnc!);
+
+  return {
+    ...config,
+    secretKey,
+  };
 };
 
 /**

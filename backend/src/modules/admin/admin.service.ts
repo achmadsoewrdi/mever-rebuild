@@ -1,6 +1,9 @@
 import * as repo from "./admin.repository";
 import { hashPassword } from "../../utils/hash";
 import { redisCache } from "../../loaders";
+import { getActiveConfigDecrypted, getConfigById } from "../storage-configs/storage-configs.service";
+import { S3Client, DeleteObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { decrypt } from "../../utils/encrypt";
 
 export const getAllUsers = async () => {
   return await repo.getAllUser();
@@ -108,7 +111,65 @@ export const removeVideo = async (id: string, isHard: boolean = false) => {
     if (!video) {
       throw new Error("Video Not Found");
     }
-    // Hard delete dari DB
+
+    // 1. Delete physical files from MinIO / S3
+    try {
+      if (video.storageConfigId) {
+        const config = await getConfigById(video.storageConfigId);
+        const secretKey = decrypt(config.secretKeyEnc!);
+        
+        let endpoint = config.endpointUrl!;
+        if (!endpoint.startsWith("http")) endpoint = `https://${endpoint}`;
+
+        const s3Client = new S3Client({
+          region: "us-east-1",
+          endpoint,
+          credentials: {
+            accessKeyId: config.accessKey!,
+            secretAccessKey: secretKey,
+          },
+          forcePathStyle: true,
+        });
+
+        // Hapus file mentah di bucket input
+        if (video.sourcePath) {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: config.bucketInput!,
+            Key: video.sourcePath
+          })).catch(err => console.error("Gagal hapus raw video:", err.message));
+        }
+
+        // Hapus semua folder output (hls, dash, mp4) di bucket output
+        // Prefix yang di-generate oleh transcoder adalah: videos/{slug}/
+        if (video.slug) {
+          const prefix = `videos/${video.slug}/`;
+          let isTruncated = true;
+          let continuationToken: string | undefined = undefined;
+
+          while (isTruncated) {
+            const listParams: any = { Bucket: config.bucketOutput!, Prefix: prefix };
+            if (continuationToken) listParams.ContinuationToken = continuationToken;
+            
+            const listedObjects = await s3Client.send(new ListObjectsV2Command(listParams));
+            if (listedObjects.Contents && listedObjects.Contents.length > 0) {
+              const deleteParams = {
+                Bucket: config.bucketOutput!,
+                Delete: { Objects: listedObjects.Contents.map(({ Key }) => ({ Key })) }
+              };
+              await s3Client.send(new DeleteObjectsCommand(deleteParams));
+            }
+            isTruncated = listedObjects.IsTruncated ?? false;
+            continuationToken = listedObjects.NextContinuationToken;
+          }
+          console.log(`[STORAGE] Berhasil menghapus semua aset fisik dari: ${prefix}`);
+        }
+      }
+    } catch (s3Error) {
+      console.error("[STORAGE] Gagal menghapus file fisik di storage:", s3Error);
+      // Lanjutkan menghapus dari DB meskipun file gagal dihapus (misal: storage mati)
+    }
+
+    // 2. Hard delete dari DB (cascades manually to assets & jobs)
     await repo.hardDeleteVideo(id);
   } else {
     // Soft delete

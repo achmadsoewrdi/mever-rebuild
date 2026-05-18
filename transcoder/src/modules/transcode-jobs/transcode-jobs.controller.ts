@@ -5,6 +5,7 @@ import { env } from "../../config/env";
 import { generateUniqueSlug } from "../../utils/slug";
 import { parseObjectName } from "../../utils/object-name-formatter";
 import { getProtocol } from "../../utils/protocol-rules";
+import { decrypt } from "../../utils/encrypt";
 import { ffmpeg } from "../../loaders/ffmpeg";
 import { Queue, Worker, Job } from "bullmq";
 import { updateRedisJobId } from "./transcode-jobs.repository";
@@ -19,6 +20,8 @@ import {
 import {
   createVideo,
   findVideoBySourcePath,
+  findVideoById,
+  findStorageConfigById,
   updateVideoStatus,
   updateVideoTotalJobs,
   updateThumbnailUrl,
@@ -119,42 +122,45 @@ export const listenUploadQueue = async () => {
       const data = await redisQueue.blpop(env.REDIS_QUEUE_UPLOAD_KEY, 0);
       if (!data) continue;
 
-      // Payload dari MinIO berformat array of event objects
+      // Payload dari Backend berformat { videoId: "..." }
       const payload = JSON.parse(data[1]);
       console.log(
-        "[UPLOAD WORKER] Payload diterima dari MinIO:",
+        "[UPLOAD WORKER] Payload diterima dari Backend:",
         JSON.stringify(payload, null, 2),
       );
 
-      // Dekode URL untuk menangani karakter spesial pada nama file (mis: spasi → %20)
-      const rawPath = decodeURIComponent(payload[0].Event[0].s3.object.key);
-      const parsedName = parseObjectName(rawPath);
-      const slug = generateUniqueSlug(parsedName.baseName);
+      const videoId = payload.videoId;
+      if (!videoId) {
+        console.error("[UPLOAD WORKER] Payload tidak valid (tanpa videoId):", payload);
+        continue;
+      }
 
-      console.log(
-        `\n[UPLOAD WORKER] Video baru terdeteksi: "${parsedName.fileName}"`,
-      );
-
-      // ---------------------------------------------------------------
-      // Cari video di database berdasarkan sourcePath
-      // Karena Backend sudah membuat record sebelum upload
-      // ---------------------------------------------------------------
-      let videoData = await findVideoBySourcePath(rawPath);
+      // Ambil data video dari database
+      const videoData = await findVideoById(videoId);
 
       if (!videoData) {
-        console.log(
-          `[UPLOAD WORKER] Peringatan: Record video tidak ditemukan, membuat record darurat...`,
+        console.error(
+          `[UPLOAD WORKER] Video dengan ID ${videoId} tidak ditemukan di database!`,
         );
-        videoData = await createVideo({
-          title: parsedName.baseName,
-          slug: slug,
-          sourcePath: rawPath,
-          originalName: parsedName.fileName,
-          status: "queued",
-        });
-      } else {
-        await updateVideoStatus(videoData.id, "queued");
+        continue;
       }
+
+      const rawPath = videoData.sourcePath!;
+      const slug = videoData.slug;
+
+      console.log(
+        `\n[UPLOAD WORKER] Memproses video baru: "${videoData.title}" (${slug})`,
+      );
+
+      // Dekripsi Storage Config
+      const configData = await findStorageConfigById(videoData.storageConfigId!);
+      if (!configData) {
+        console.error(`[UPLOAD WORKER] Konfigurasi penyimpanan tidak ditemukan untuk video ini!`);
+        continue;
+      }
+      const decryptedConfig = { ...configData, secretKey: decrypt(configData.secretKeyEnc!) };
+
+      await updateVideoStatus(videoData.id, "queued");
 
       // Hapus cache agar status 'queued' langsung terlihat
       await invalidateVideosCache(videoData.id);
@@ -173,9 +179,10 @@ export const listenUploadQueue = async () => {
       // Video diunduh SEKALI di sini, lalu path-nya dibagikan ke semua
       // job transcode agar mereka tidak perlu mengunduh ulang.
       // ---------------------------------------------------------------
-      console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO: ${rawPath}`);
+      console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO/S3: ${rawPath}`);
       await downloadFromMinio(
-        env.MINIO_BUCKET_SOURCE,
+        decryptedConfig,
+        configData.bucketInput!,
         rawPath,
         localSourcePath,
       );
@@ -204,13 +211,16 @@ export const listenUploadQueue = async () => {
       const thumbnailMinioPath = `thumbnails/${slug}-thumb.png`;
 
       await uploadToMinio(
+        decryptedConfig,
         thumbnailPath,
-        env.MINIO_BUCKET_PUBLIC,
+        configData.bucketOutput!,
         thumbnailMinioPath,
       );
+      
+      let hostProtocol = configData.endpointUrl!.startsWith("http") ? "" : "https://";
       await updateThumbnailUrl(
         videoData.id,
-        `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${thumbnailMinioPath}`,
+        `${hostProtocol}${configData.endpointUrl}/${configData.bucketOutput}/${thumbnailMinioPath}`,
       );
 
       // Hapus file thumbnail dari lokal setelah berhasil diunggah ke MinIO
@@ -312,6 +322,7 @@ export const listenUploadQueue = async () => {
 
         jobMessages.push({
           videoId: videoData.id,
+          storageConfigId: configData.id,
           presetId: preset.id,
           sourcePath: rawPath,
           localSourcePath: localSourcePath,
@@ -375,8 +386,9 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
   const worker = new Worker("transcodeQueue", async (job: Job) => {
     const jobData = job.data;
     const {
-      jobId, videoId, presetId, sourcePath, outputFilename,
-      codec, resolutionHeight, resolutionName, packager, slug, totalJobs
+        jobId, videoId, presetId, sourcePath, outputFilename,
+        codec, resolutionHeight, resolutionName, packager, slug, totalJobs,
+        storageConfigId
     } = jobData;
 
     console.log(`\n[Job ${job.id}] Memulai render | Resolusi: ${resolutionName}`);
@@ -386,12 +398,16 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const tempDir = path.join(__dirname, "../../../temp");
     let localSourcePath: string = jobData.localSourcePath;
 
+    // Dekripsi Storage Config
+    const configData = await findStorageConfigById(storageConfigId);
+    const decryptedConfig = { ...configData, secretKey: decrypt(configData.secretKeyEnc!) };
+
     try {
       await fs.access(localSourcePath);
     } catch {
-      console.log(`[Job ${job.id}] File source tidak ditemukan di lokal, mengunduh dari MinIO...`);
+      console.log(`[Job ${job.id}] File source tidak ditemukan di lokal, mengunduh dari MinIO/S3...`);
       localSourcePath = path.join(tempDir, `${videoId}-source.mp4`);
-      await downloadFromMinio(env.MINIO_BUCKET_SOURCE, sourcePath, localSourcePath);
+      await downloadFromMinio(decryptedConfig, configData.bucketInput!, sourcePath, localSourcePath);
     }
 
     const localOutputPath = path.join(tempDir, outputFilename);
@@ -430,7 +446,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     }
 
     const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
-    await uploadToMinio(localOutputPath, env.MINIO_BUCKET_PUBLIC, minioOutputPath);
+    await uploadToMinio(decryptedConfig, localOutputPath, configData.bucketOutput!, minioOutputPath);
 
     if (packager === "hls" || packager === "dash") {
       const files = await fs.readdir(tempDir);
@@ -442,18 +458,19 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
 
         if (isHlsSegment || isDashFmp4Segment) {
           const minioSegPath = `videos/${slug}/${resolutionName}/${file}`;
-          await uploadToMinio(path.join(tempDir, file), env.MINIO_BUCKET_PUBLIC, minioSegPath);
+          await uploadToMinio(decryptedConfig, path.join(tempDir, file), configData.bucketOutput!, minioSegPath);
           await fs.unlink(path.join(tempDir, file)).catch(() => null);
         }
       }
     }
 
+    let hostProtocol = configData.endpointUrl!.startsWith("http") ? "" : "https://";
     const protocol = getProtocol(codec, packager);
     const newAsset = await createAsset({
       videoId, presetId, jobId, codec,
       format: packager === "dash" ? "mpd" : packager === "hls" ? "m3u8" : "mp4",
       protocol, resolution: resolutionName,
-      manifestUrl: `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${env.MINIO_BUCKET_PUBLIC}/${minioOutputPath}`,
+      manifestUrl: `${hostProtocol}${configData.endpointUrl}/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
     await setJobCompleted(jobId, newAsset.id);

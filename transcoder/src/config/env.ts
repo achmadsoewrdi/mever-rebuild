@@ -44,6 +44,9 @@ const envSchema = z.object({
   // Default Transcode Settings
   DEFAULT_CODEC: z.enum(["h264", "h265", "vp9", "vp8", "av1"]).default("h264"),
   DEFAULT_PACKAGER: z.enum(["hls", "dash", "plain"]).default("hls"),
+
+  // Security
+  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY harus minimal 32 karakter"),
 });
 
 export const env = envSchema.parse(process.env);

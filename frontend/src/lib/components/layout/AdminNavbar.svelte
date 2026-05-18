@@ -3,6 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state'; // Import state page untuk mendeteksi rute
 	import { getContext } from 'svelte'; // Import getContext untuk tema
+	import { currentUser } from '$lib/stores/auth.store';
 
 	// Import UI Component
 	import Button from '$lib/components/ui/Button.svelte';
@@ -11,13 +12,15 @@
 		userName?: string;
 	}
 
-	let { userName = 'ISR Guest' }: Props = $props();
+	let { userName = undefined }: Props = $props();
+
+	let displayName = $derived(userName || ($currentUser?.email ? $currentUser.email.split('@')[0] : 'Admin'));
 
 	// Ambil state tema dari context
 	const theme = getContext<{ isDark: boolean; toggle: () => void }>('theme');
 
 	let userInitials = $derived(
-		userName
+		displayName
 			.split(' ')
 			.map((n) => n[0])
 			.join('')
@@ -74,7 +77,7 @@
 				>
 					{userInitials}
 				</div>
-				<span class="ml-1 text-sm font-medium text-slate-700 dark:text-slate-200">{userName}</span>
+				<span class="ml-1 text-sm font-medium text-slate-700 dark:text-slate-200">{displayName}</span>
 				<ChevronDown
 					size={14}
 					class="text-slate-400 transition-transform {isDropdownOpen ? 'rotate-180' : ''}"

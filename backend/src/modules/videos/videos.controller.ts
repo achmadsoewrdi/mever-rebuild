@@ -25,7 +25,7 @@ export const handleListVideos = async (
     reply.status(200).send(SuccessResponse(videos, "Berhasil mengambil daftar video"));
   } catch (err: any) {
     console.error("LIST Videos Error:", err);
-    reply.status(500).send(errorResponse("Terjadi kesalahan server"));
+    reply.status(500).send(errorResponse(err.message + " | Stack: " + err.stack));
   }
 };
 

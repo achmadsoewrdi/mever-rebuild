@@ -36,14 +36,14 @@
 	}
 </script>
 
-<div class="overflow-x-auto rounded-lg border border-border-base shadow-sm">
+<div class="overflow-x-auto rounded-xl border border-border-base bg-white shadow-sm dark:bg-bg-secondary">
 	<table class="w-full text-left text-sm text-text-main">
-		<thead class="border-b border-border-base bg-bg-secondary text-xs text-text-sub uppercase">
+		<thead class="border-b border-border-base bg-slate-50/50 text-xs font-semibold tracking-wider text-slate-500 uppercase dark:bg-bg-elevated/50 dark:text-slate-400">
 			<tr>
-				<th scope="col" class="px-6 py-4">Video</th>
-				<th scope="col" class="px-6 py-4">Status</th>
-				<th scope="col" class="px-6 py-4">Created At</th>
-				<th scope="col" class="px-6 py-4 text-right">Action</th>
+				<th scope="col" class="px-6 py-5">Video</th>
+				<th scope="col" class="px-6 py-5">Status</th>
+				<th scope="col" class="px-6 py-5">Created At</th>
+				<th scope="col" class="px-6 py-5 text-right">Action</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -56,31 +56,31 @@
 			{:else}
 				{#each videos as video (video.id)}
 					<tr
-						class="border-b border-border-base bg-white transition-colors hover:bg-slate-50 dark:bg-bg-secondary dark:hover:bg-bg-surface"
+						class="group border-b border-border-base bg-white transition-all duration-300 hover:bg-primary/5 dark:bg-bg-secondary dark:hover:bg-bg-surface"
 					>
-						<td class="flex items-center gap-3 px-6 py-4 font-medium">
+						<td class="flex items-center gap-4 px-6 py-4 font-medium">
 							{#if video.thumbnailUrl}
 								<img
 									src={video.thumbnailUrl}
 									alt={video.title}
-									class="h-9 w-16 rounded border border-border-base object-cover"
+									class="h-10 w-16 rounded-md object-cover shadow-sm transition-transform duration-300 group-hover:scale-105"
 								/>
 							{:else}
 								<div
-									class="flex h-9 w-16 items-center justify-center rounded border border-border-base bg-slate-100 text-xs text-text-sub dark:bg-slate-800"
+									class="flex h-10 w-16 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-400 dark:bg-slate-800"
 								>
-									No Thumb
+									NO THUMB
 								</div>
 							{/if}
-							<div>
-								<div class="font-bold text-text-main">{video.title}</div>
-								<div class="max-w-xs truncate text-xs text-text-sub">{video.slug}</div>
+							<div class="flex flex-col justify-center">
+								<div class="font-bold text-slate-800 transition-colors group-hover:text-primary dark:text-slate-100">{video.title}</div>
+								<div class="max-w-xs truncate text-[11px] font-medium text-slate-400">{video.slug}</div>
 							</div>
 						</td>
 						<td class="px-6 py-4">
 							<Badge color={getStatusColor(video.status)} label={video.status} />
 						</td>
-						<td class="px-6 py-4 text-text-sub">
+						<td class="px-6 py-4 text-xs font-medium text-slate-500 dark:text-slate-400">
 							{new Date(video.createdAt).toLocaleDateString('id-ID', {
 								day: '2-digit',
 								month: 'short',
@@ -88,27 +88,27 @@
 							})}
 						</td>
 						<td class="px-6 py-4 text-right">
-							<div class="flex justify-end gap-2">
+							<div class="flex justify-end gap-1 transition-opacity duration-300">
 								<button
 									onclick={() => dispatch('view', video)}
-									class="rounded-full p-2 transition-colors hover:bg-slate-100 dark:hover:bg-bg-surface"
+									class="rounded-lg bg-blue-500/10 p-2 text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400"
 									title="View Detail"
 								>
-									<Eye size={18} class="text-text-sub" />
+									<Eye size={16} />
 								</button>
 								<button
 									onclick={() => dispatch('edit', video)}
-									class="rounded-full p-2 transition-colors hover:bg-slate-100 dark:hover:bg-bg-surface"
+									class="rounded-lg bg-amber-500/10 p-2 text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
 									title="Edit"
 								>
-									<Edit size={18} class="text-text-sub" />
+									<Edit size={16} />
 								</button>
 								<button
 									onclick={() => dispatch('delete', video)}
-									class="rounded-full p-2 text-red-500 transition-colors hover:bg-slate-100 dark:hover:bg-bg-surface"
+									class="rounded-lg bg-rose-500/10 p-2 text-rose-600 transition-colors hover:bg-rose-500/20 dark:text-rose-400"
 									title="Delete"
 								>
-									<Trash2 size={18} />
+									<Trash2 size={16} />
 								</button>
 							</div>
 						</td>

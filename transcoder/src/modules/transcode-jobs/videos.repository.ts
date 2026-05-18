@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
-import { videos, videoAssets } from "../../../drizzle/schema";
+import { videos, videoAssets, storageConfigs } from "../../../drizzle/schema";
 
 export type CreateVideoData = typeof videos.$inferInsert;
 
@@ -16,6 +16,24 @@ export const findVideoBySourcePath = async (sourcePath: string) => {
     .select()
     .from(videos)
     .where(eq(videos.sourcePath, sourcePath))
+    .limit(1);
+  return result[0];
+};
+
+export const findVideoById = async (id: string) => {
+  const result = await db
+    .select()
+    .from(videos)
+    .where(eq(videos.id, id))
+    .limit(1);
+  return result[0];
+};
+
+export const findStorageConfigById = async (id: string) => {
+  const result = await db
+    .select()
+    .from(storageConfigs)
+    .where(eq(storageConfigs.id, id))
     .limit(1);
   return result[0];
 };

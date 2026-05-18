@@ -7,6 +7,7 @@ export const videoStatusEnum = pgEnum("video_status", [
   "processing",
   "ready",
   "failed",
+  "deleted",
 ]);
 export const jobStatusEnum = pgEnum("job_status", [
   "queued",

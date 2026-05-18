@@ -18,56 +18,58 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
   const whereConditions = [];
 
   if (status) {
-    whereConditions.push(eq(videos.status, status));
+    whereConditions.push(eq(videos.status, status as any));
   } else {
-    // Sembunyikan video yang gagal (error) dan yang dihapus dari daftar utama
-    whereConditions.push(ne(videos.status, "failed"));
-    whereConditions.push(ne(videos.status, "deleted" as any));
+    // Tampilkan hanya video yang tidak gagal
+    whereConditions.push(inArray(videos.status, ["uploading", "queued", "processing", "ready"] as any));
   }
   if (search) {
     whereConditions.push(ilike(videos.title, `%${search}%`));
   }
 
   // Filter Protocols (Join dengan video_assets agar sinkron dengan UI Tags)
-  if (protocols && protocols.length > 0) {
-    console.log("[REPO] Menambah filter protocols:", protocols);
+  const validProtocols = protocols?.filter((p) => p && p.trim() !== "");
+  if (validProtocols && validProtocols.length > 0) {
+    console.log("[REPO] Menambah filter protocols:", validProtocols);
     const subquery = db
       .select({ id: videoAssets.videoId })
       .from(videoAssets)
       .where(
         and(
           eq(videoAssets.videoId, videos.id),
-          inArray(videoAssets.protocol, protocols as any),
+          inArray(videoAssets.protocol, validProtocols as any),
         ),
       );
     whereConditions.push(exists(subquery));
   }
 
   // Filter Encoders (Join dengan video_assets agar sinkron dengan UI Tags)
-  if (encoders && encoders.length > 0) {
-    console.log("[REPO] Menambah filter encoders:", encoders);
+  const validEncoders = encoders?.filter((e) => e && e.trim() !== "");
+  if (validEncoders && validEncoders.length > 0) {
+    console.log("[REPO] Menambah filter encoders:", validEncoders);
     const subquery = db
       .select({ id: videoAssets.videoId })
       .from(videoAssets)
       .where(
         and(
           eq(videoAssets.videoId, videos.id),
-          inArray(videoAssets.codec, encoders as any),
+          inArray(videoAssets.codec, validEncoders as any),
         ),
       );
     whereConditions.push(exists(subquery));
   }
 
   // Filter Resolutions (Join dengan video_assets)
-  if (resolutions && resolutions.length > 0) {
-    console.log("[REPO] Menambah filter resolutions:", resolutions);
+  const validResolutions = resolutions?.filter((r) => r && r.trim() !== "");
+  if (validResolutions && validResolutions.length > 0) {
+    console.log("[REPO] Menambah filter resolutions:", validResolutions);
     const subquery = db
       .select({ id: videoAssets.videoId })
       .from(videoAssets)
       .where(
         and(
           eq(videoAssets.videoId, videos.id),
-          inArray(videoAssets.resolution, resolutions),
+          inArray(videoAssets.resolution, validResolutions),
         ),
       );
     whereConditions.push(exists(subquery));

@@ -1,20 +1,51 @@
 import path from "path";
-import { minioClient } from "../../loaders/minio";
+import * as Minio from "minio";
 import { ffmpeg } from "../../loaders/ffmpeg";
 import { getBestEncoder } from "../../utils/hardware-acceleration";
 
 // ==========================================
-// A. LAYANAN MINIO (STORAGE)
+// A. LAYANAN MINIO (STORAGE) DINAMIS
 // ==========================================
+
+export const getDynamicS3Client = (config: any) => {
+  let endPoint = config.endpointUrl;
+  let useSSL = false;
+  let port = undefined;
+
+  if (endPoint.startsWith("https://")) {
+    useSSL = true;
+    port = 443;
+    endPoint = endPoint.replace("https://", "");
+  } else if (endPoint.startsWith("http://")) {
+    port = 80;
+    endPoint = endPoint.replace("http://", "");
+  }
+
+  if (endPoint.includes(":")) {
+    const parts = endPoint.split(":");
+    endPoint = parts[0];
+    port = parseInt(parts[1], 10);
+  }
+
+  return new Minio.Client({
+    endPoint,
+    port,
+    useSSL,
+    accessKey: config.accessKey,
+    secretKey: config.secretKey, 
+  });
+};
 
 // download from minio
 export const downloadFromMinio = async (
+  config: any,
   bucket: string,
   objectName: string,
   LocalPath: string,
 ): Promise<void> => {
+  const client = getDynamicS3Client(config);
   try {
-    await minioClient.fGetObject(bucket, objectName, LocalPath);
+    await client.fGetObject(bucket, objectName, LocalPath);
     console.log(`[MINIO DOWNLOAD] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(
@@ -27,12 +58,14 @@ export const downloadFromMinio = async (
 
 // upload to minio
 export const uploadToMinio = async (
+  config: any,
   localPath: string,
   bucket: string,
   objectName: string,
 ): Promise<void> => {
+  const client = getDynamicS3Client(config);
   try {
-    await minioClient.fPutObject(bucket, objectName, localPath, {});
+    await client.fPutObject(bucket, objectName, localPath, {});
     console.log(`[MINIO UPLOAD] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(
@@ -45,11 +78,13 @@ export const uploadToMinio = async (
 
 // remove from minio
 export const removeFromMinio = async (
+  config: any,
   bucket: string,
   objectName: string,
 ): Promise<void> => {
+  const client = getDynamicS3Client(config);
   try {
-    await minioClient.removeObject(bucket, objectName);
+    await client.removeObject(bucket, objectName);
     console.log(`[MINIO BERHASIL MENGHAPUS] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(`[MINIO GAGAL MENGHAPUS] gagal: ${objectName}:`, err.message);

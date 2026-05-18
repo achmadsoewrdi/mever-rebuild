@@ -4,10 +4,12 @@ import {
   createVideo,
   updateVideoStatus,
 } from "./videos.repository";
-import { redisCache, minioClient } from "../../loaders";
+import { redisCache } from "../../loaders";
 import { VideoFilterInput, RequestUploadInput } from "./videos.schema";
-import { env } from "../../config/env";
 import { generateSlug } from "../../utils/slug";
+import { getActiveConfigDecrypted } from "../storage-configs/storage-configs.service";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ============================================
 //  SERVICE: Videos
@@ -59,11 +61,15 @@ export const requestUpload = async (
   userId: string,
   input: RequestUploadInput,
 ) => {
+  // Dapatkan konfigurasi storage yang aktif secara dinamis
+  const config = await getActiveConfigDecrypted();
+
   const slug = generateSlug(input.title);
   const objectName = `raw/${userId}/${slug}.mp4`;
 
   const newVideo = await createVideo({
     uploadedBy: userId,
+    storageConfigId: config.id, // Simpan referensi storage ke tabel video
     title: input.title,
     description: input.description,
     slug,
@@ -77,11 +83,28 @@ export const requestUpload = async (
   // Hapus cache list videos karena ada video baru
   await invalidateVideosCache();
 
-  const presignedUrl = await minioClient.presignedPutObject(
-    env.MINIO_BUCKET_SOURCE,
-    objectName,
-    3600,
-  );
+  // Inisialisasi S3 Client secara dinamis khusus untuk request ini
+  let endpoint = config.endpointUrl!;
+  if (!endpoint.startsWith("http")) {
+    endpoint = `https://${endpoint}`; // Default protocol
+  }
+
+  const s3Client = new S3Client({
+    region: "us-east-1", // Bisa diganti sesuai region bucket, default S3/MinIO us-east-1
+    endpoint: endpoint,
+    credentials: {
+      accessKeyId: config.accessKey!,
+      secretAccessKey: config.secretKey,
+    },
+    forcePathStyle: true, // Penting untuk MinIO
+  });
+
+  const command = new PutObjectCommand({
+    Bucket: config.bucketInput!,
+    Key: objectName,
+  });
+
+  const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
   return {
     video: newVideo,
@@ -95,4 +118,7 @@ export const confirmUpload = async (videoId: string): Promise<void> => {
   // Hapus cache list videos dan cache detail video
   await invalidateVideosCache();
   await redisCache.del(`cache:video:${videoId}`);
+
+  // Push ke antrean transcoder (berisi videoId)
+  await redisCache.rpush("queue:upload", JSON.stringify({ videoId }));
 };

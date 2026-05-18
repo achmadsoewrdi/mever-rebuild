@@ -5,6 +5,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { Search, Plus, ChevronDown } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -113,23 +114,26 @@
 	}
 </script>
 
-<div class="space-y-4 px-6 py-2">
-	<div class="flex items-center justify-between">
+<div class="space-y-6 px-4 py-2">
+	<!-- Header Section -->
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-text-main">Video Management</h1>
-			<p class="text-sm text-text-sub">
-				Kelola semua video, pantau status transcode, dan moderasi konten.
+			<h1 class="text-2xl font-bold text-text-main">Video Library</h1>
+			<p class="mt-1 text-sm text-text-sub">
+				Kelola semua aset video, pantau status transcode, dan kelola metadata.
 			</p>
 		</div>
-		<Button variant="primary" href="/admin/videos/upload">
+		<Button variant="primary" href="/admin/videos/upload" class="shadow-md shadow-primary/20 transition-transform hover:-translate-y-0.5">
 			<Plus size={16} class="mr-2" />
-			Add Video
+			Add New Video
 		</Button>
 	</div>
 
-	<div class="flex flex-col items-center justify-between gap-4 md:flex-row">
+	<!-- Filter & Search Bar -->
+	<div class="flex flex-col gap-4 md:flex-row md:items-center">
+		<!-- Search Input -->
 		<div class="relative w-full md:max-w-md">
-			<div class="absolute top-1/2 left-3.5 -translate-y-1/2 text-text-sub">
+			<div class="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400">
 				<Search size={18} />
 			</div>
 			<input
@@ -137,16 +141,16 @@
 				placeholder="Cari judul video..."
 				value={search}
 				oninput={handleSearch}
-				class="h-11 w-full rounded-md border border-border-base bg-white pr-4 pl-11 text-sm text-text-main transition-all placeholder:text-text-muted focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none dark:bg-bg-secondary"
+				class="h-11 w-full rounded-xl border border-border-base bg-white pr-4 pl-12 text-sm text-text-main shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none dark:bg-bg-secondary"
 			/>
 		</div>
 
-		<div class="flex w-full gap-3 md:w-auto">
-			<div class="relative min-w-[150px]">
+		<!-- Status Dropdown -->
+		<div class="relative w-full md:w-auto min-w-[160px]">
 				<!-- Trigger -->
 				<button
 					onclick={() => (isStatusDropdownOpen = !isStatusDropdownOpen)}
-					class="flex h-11 w-full items-center justify-between rounded-md border border-border-base bg-white px-4 text-sm text-text-main transition-all focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none dark:bg-bg-secondary"
+					class="flex h-11 w-full items-center justify-between rounded-xl border border-border-base bg-white px-4 text-sm font-medium text-text-main shadow-sm transition-all hover:bg-slate-50 focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none dark:bg-bg-secondary dark:hover:bg-bg-surface"
 				>
 					<span>{selectedStatusLabel}</span>
 					<ChevronDown
@@ -158,7 +162,7 @@
 				<!-- Dropdown Menu -->
 				{#if isStatusDropdownOpen}
 					<div
-						class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-border-base bg-white shadow-lg dark:bg-bg-secondary"
+						class="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-border-base bg-white/90 shadow-xl backdrop-blur-md dark:bg-bg-elevated/90"
 						in:fade={{ duration: 100 }}
 					>
 						{#each statusOptions as option (option.value)}
@@ -169,10 +173,10 @@
 									page = 1; // Reset to page 1 on filter change
 									loadVideos();
 								}}
-								class="w-full px-4 py-2.5 text-left text-sm text-text-main transition-colors hover:bg-bg-surface dark:hover:bg-bg-elevated {status ===
+								class="w-full px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-bg-surface {status ===
 								option.value
-									? 'bg-primary/5 font-medium text-primary'
-									: ''}"
+									? 'bg-primary/10 text-primary'
+									: 'text-text-main'}"
 							>
 								{option.label}
 							</button>
@@ -181,12 +185,11 @@
 				{/if}
 			</div>
 		</div>
-	</div>
 
 	{#if loading && videos.length === 0}
-		<div class="flex flex-col items-center justify-center space-y-4 py-12">
-			<div class="animate-spin text-primary">⏳</div>
-			<span class="text-sm text-text-sub">Sedang memuat data video...</span>
+		<div class="flex min-h-[400px] flex-col items-center justify-center space-y-4">
+			<Spinner size="lg" class="text-primary" />
+			<span class="text-sm font-medium text-slate-400">Memuat data video...</span>
 		</div>
 	{:else}
 		<VideoTable

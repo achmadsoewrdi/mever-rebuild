@@ -9,11 +9,13 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { storageConfigs } from "./storage-configs";
 import { videoStatusEnum, codecTypeEnum, protocolTypeEnum } from "./enums";
 
 export const videos = pgTable("videos", {
   id: uuid("id").primaryKey().defaultRandom(),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
+  storageConfigId: uuid("storage_config_id").references(() => storageConfigs.id),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   slug: varchar("slug", { length: 255 }).notNull().unique(),

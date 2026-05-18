@@ -46,6 +46,18 @@ export const findById = async (id: string) => {
 };
 
 /**
+ * Mengambil konfigurasi penyimpanan yang sedang aktif
+ */
+export const findActive = async () => {
+  const result = await db
+    .select()
+    .from(storageConfigs)
+    .where(eq(storageConfigs.isActive, true))
+    .limit(1);
+  return result[0];
+};
+
+/**
  * Memperbarui data konfigurasi
  */
 export const update = async (
