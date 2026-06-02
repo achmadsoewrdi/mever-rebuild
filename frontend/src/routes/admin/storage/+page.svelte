@@ -146,7 +146,7 @@
 	{:else}
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 			{#each configs as config (config.id)}
-				<div class="space-y-4 rounded-xl border border-border-base bg-bg-secondary p-5">
+				<div class="space-y-4 rounded-xl border border-border-base bg-white p-5 shadow-sm dark:bg-bg-secondary">
 					<div class="flex items-start justify-between">
 						<div>
 							<h2 class="text-lg font-semibold text-text-main">{config.name}</h2>
@@ -167,11 +167,11 @@
 					</div>
 
 					<div class="grid grid-cols-2 gap-2 text-sm">
-						<div class="bg-bg-main rounded-lg p-2">
+						<div class="rounded-lg bg-slate-50 p-2 dark:bg-bg-main">
 							<span class="text-xs text-text-sub">Bucket Input</span>
 							<p class="truncate font-mono text-text-main">{config.bucketInput}</p>
 						</div>
-						<div class="bg-bg-main rounded-lg p-2">
+						<div class="rounded-lg bg-slate-50 p-2 dark:bg-bg-main">
 							<span class="text-xs text-text-sub">Bucket Output</span>
 							<p class="truncate font-mono text-text-main">{config.bucketOutput}</p>
 						</div>
@@ -187,13 +187,13 @@
 						<div class="flex gap-2">
 							<button
 								onclick={() => openEditModal(config)}
-								class="hover:bg-bg-main rounded-lg p-1.5 text-text-sub transition-colors hover:text-text-main"
+								class="rounded-lg p-1.5 text-text-sub transition-colors hover:bg-slate-50 hover:text-text-main dark:hover:bg-bg-main"
 							>
 								<Pencil size={16} />
 							</button>
 							<button
 								onclick={() => handleDelete(config.id)}
-								class="hover:bg-bg-main rounded-lg p-1.5 text-text-sub transition-colors hover:text-red-500"
+								class="rounded-lg p-1.5 text-text-sub transition-colors hover:bg-slate-50 hover:text-red-500 dark:hover:bg-bg-main"
 							>
 								<Trash2 size={16} />
 							</button>

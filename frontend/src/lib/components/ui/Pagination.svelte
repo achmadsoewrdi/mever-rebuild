@@ -13,7 +13,7 @@
 </script>
 
 <div
-	class="flex items-center justify-between border-t border-border-base bg-white px-6 py-2 dark:bg-transparent"
+	class="flex items-center justify-between rounded-xl border border-border-base bg-white px-6 py-3 shadow-sm dark:bg-bg-secondary"
 >
 	<!-- Info Halaman di sebelah kiri -->
 	<div class="text-xs font-medium text-text-muted dark:text-slate-300">

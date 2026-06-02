@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils/cn';
 	import { removeToast, type Toast } from '$lib/stores/toast.store';
-	import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-svelte';
+	import { CircleCheck, CircleX, TriangleAlert, Info, X } from 'lucide-svelte';
 
 	interface Props {
 		toast: Toast;
@@ -12,17 +12,17 @@
 	// Konfigurasi per tipe toast
 	const config = {
 		success: {
-			icon: CheckCircle,
+			icon: CircleCheck,
 			class: 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400',
 			iconClass: 'text-emerald-500 dark:text-emerald-400'
 		},
 		error: {
-			icon: XCircle,
+			icon: CircleX,
 			class: 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400',
 			iconClass: 'text-rose-500 dark:text-rose-400'
 		},
 		warning: {
-			icon: AlertTriangle,
+			icon: TriangleAlert,
 			class: 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400',
 			iconClass: 'text-amber-500 dark:text-amber-400'
 		},

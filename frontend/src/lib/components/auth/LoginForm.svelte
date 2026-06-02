@@ -5,56 +5,49 @@
 	import { Mail, Lock } from 'lucide-svelte';
 	import { loginSchema, type LoginInput } from '$lib/utils/validator';
 
+	import ErrorPopup from '$lib/components/ui/ErrorPopup.svelte';
+
 	// Svelte 5 callback props
 	interface Props {
-		/** Function callback yang akan dipanggil ketika form valid dan disubmit */
 		onSubmit?: (data: LoginInput, rememberMe: boolean) => Promise<void>;
-		/** State loading eksternal jika dikontrol dari halaman page */
 		isLoading?: boolean;
+		errorMessage?: string | null;
+		onErrorDismiss?: () => void;
 	}
 
-	let { onSubmit, isLoading = false }: Props = $props();
+	let { onSubmit, isLoading = false, errorMessage = null, onErrorDismiss }: Props = $props();
 
 	// Local State
 	let email = $state('');
 	let password = $state('');
 	let rememberMe = $state(false);
-	let errors = $state<{ email?: string; password?: string; global?: string }>({});
+	let localError = $state<string | null>(null);
 	let isSubmitting = $state(false);
 
-	// Derived loading state (gabungan dari prop dan local)
+	// Derived states
 	let loading = $derived(isLoading || isSubmitting);
+	let displayError = $derived(errorMessage || localError);
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		errors = {}; // Reset error
+		localError = null;
+		if (onErrorDismiss) onErrorDismiss();
+
 		const result = loginSchema.safeParse({ email, password });
-		// 2. Cek apakah validasi GAGAL
 		if (!result.success) {
-			const fieldErrors: typeof errors = {};
-
-			// result.error otomatis dikenali oleh TypeScript sebagai ZodError
-			result.error.issues.forEach((e) => {
-				if (e.path[0]) {
-					fieldErrors[e.path[0] as keyof typeof errors] = e.message;
-				}
-			});
-
-			errors = fieldErrors;
-			return; // Berhenti di sini jika ada error
+			localError = "Email atau password yang Anda masukkan tidak valid.";
+			return;
 		}
-		// 3. Jika validasi BERHASIL (result.success adalah true)
 		if (onSubmit) {
 			isSubmitting = true;
 			await onSubmit(result.data, rememberMe);
-			isSubmitting = false; // Pastikan ini dijalankan setelah onSubmit selesai
+			isSubmitting = false;
 		} else {
 			console.log('Form Valid:', result.data);
 		}
 	}
 </script>
 
-<!-- Icon Snippets -->
 {#snippet mailIcon()}
 	<Mail size={18} />
 {/snippet}
@@ -71,11 +64,15 @@
 		<p class="mt-1 text-sm text-text-sub">Please sign in to access your dashboard.</p>
 	</div>
 
-	<!-- Global Error Alert -->
-	{#if errors.global}
-		<div class="border-danger/20 bg-danger/10 text-danger rounded-md border p-3 text-sm">
-			{errors.global}
-		</div>
+	<!-- Error Pop up / Banner -->
+	{#if displayError}
+		<ErrorPopup 
+			message={displayError} 
+			onClose={() => {
+				localError = null;
+				if (onErrorDismiss) onErrorDismiss();
+			}} 
+		/>
 	{/if}
 
 	<!-- Input Fields -->
@@ -88,8 +85,6 @@
 			leadingIcon={mailIcon}
 			bind:value={email}
 			disabled={loading}
-			helperText={errors.email}
-			class={errors.email ? 'border-danger focus:border-danger focus:ring-danger/10' : ''}
 		/>
 
 		<Input
@@ -100,8 +95,6 @@
 			leadingIcon={lockIcon}
 			bind:value={password}
 			disabled={loading}
-			helperText={errors.password}
-			class={errors.password ? 'border-danger focus:border-danger focus:ring-danger/10' : ''}
 		/>
 
 		<!-- Remember Me & Forgot Password -->

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Sun, Moon, ChevronDown, User, LogOut } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
-	import { page } from '$app/state'; // Import state page untuk mendeteksi rute
-	import { getContext } from 'svelte'; // Import getContext untuk tema
-	import { currentUser } from '$lib/stores/auth.store';
+	import { page } from '$app/state';
+	import { getContext } from 'svelte'; 
+	import { profileState } from '$lib/stores/profile.svelte';
 
 	// Import UI Component
 	import Button from '$lib/components/ui/Button.svelte';
@@ -14,7 +14,7 @@
 
 	let { userName = undefined }: Props = $props();
 
-	let displayName = $derived(userName || ($currentUser?.email ? $currentUser.email.split('@')[0] : 'Admin'));
+	let displayName = $derived(userName || profileState.name || 'Admin');
 
 	// Ambil state tema dari context
 	const theme = getContext<{ isDark: boolean; toggle: () => void }>('theme');
@@ -37,6 +37,7 @@
 		if (path.startsWith('/admin/videos')) return 'Video Library';
 		if (path.startsWith('/admin/users')) return 'User Management';
 		if (path.startsWith('/admin/transcoder')) return 'Transcode Jobs';
+		if (path.startsWith('/admin/settings')) return 'Account Settings';
 		return 'Admin';
 	});
 
@@ -49,20 +50,16 @@
 <svelte:window onclick={() => (isDropdownOpen = false)} />
 
 <nav
-	class="flex h-16 w-full items-center justify-between border-b-2 border-border-base bg-bg-secondary px-6 text-text-main"
+	class="flex h-16 w-full items-center justify-between border-b-2 border-slate-200 bg-white px-6 text-text-main dark:border-border-base/50 dark:bg-bg-secondary"
 >
-	<!-- KIRI: Judul Halaman Dinamis (Sesuai Gambar) -->
 	<div class="flex items-center">
 		<h1 class="text-2xl font-bold text-slate-800 dark:text-white">
 			{pageTitle}
 		</h1>
 	</div>
 
-	<!-- KANAN: Aksi (Profile & Theme) - Sama seperti Navbar User -->
 	<div class="flex items-center gap-3">
-		<!-- 1. Dropdown Profil User -->
 		<div class="relative">
-			<!-- Tombol Trigger Profil (Bentuk Pil) -->
 			<button
 				type="button"
 				onclick={(e) => {
@@ -71,7 +68,6 @@
 				}}
 				class="flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white pr-3 pl-1 transition-colors hover:bg-slate-50 dark:border-bg-surface dark:bg-bg-secondary dark:hover:bg-bg-surface"
 			>
-				<!-- Avatar Inisial -->
 				<div
 					class="flex h-8 w-8 items-center justify-center rounded-full border border-primary bg-primary/15 text-[11px] font-bold text-primary"
 				>
@@ -84,7 +80,6 @@
 				/>
 			</button>
 
-			<!-- Isi Dropdown -->
 			{#if isDropdownOpen}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -96,7 +91,7 @@
 					<div class="flex flex-col gap-1">
 						<Button
 							variant="ghost"
-							href="/dashboard/settings"
+							href="/admin/settings"
 							onclick={() => (isDropdownOpen = false)}
 							class="w-full justify-start gap-3 px-3"
 						>

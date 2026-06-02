@@ -6,17 +6,16 @@
 	import {
 		Users,
 		Film,
-		LoaderCircle,
+		Activity,
 		TriangleAlert,
 		SquarePlay,
 		Clock,
 		HardDrive,
 		Plus,
-		PlaySquare,
 		Settings2
 	} from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import { currentUser } from '$lib/stores/auth.store';
+	import { profileState } from '$lib/stores/profile.svelte';
 
 	let data = $state<DashboardData | null>(null);
 	let loading = $state(true);
@@ -68,12 +67,12 @@
 	<title>Overview — Admin Mever</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="flex h-[calc(100vh-7rem)] flex-col space-y-6 overflow-hidden">
 	<!-- Page Header -->
-	<div class="flex items-end justify-between">
+	<div class="flex shrink-0 items-end justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-text-main">
-				Halo, {$currentUser?.email ? $currentUser.email.split('@')[0] : 'Admin'}
+				Halo, {profileState.name || 'Admin'}
 			</h1>
 			<p class="mt-1 text-sm text-text-sub">Ini adalah ringkasan sistem Mever hari ini.</p>
 		</div>
@@ -92,7 +91,7 @@
 		</div>
 	{:else if data}
 		<!-- ─── Stat Cards ─── -->
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+		<div class="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<StatCard
 				title="Total Video"
 				value={data.stats.totalVideos}
@@ -108,7 +107,7 @@
 			<StatCard
 				title="Jobs Berjalan"
 				value={data.stats.processingJobs}
-				icon={LoaderCircle}
+				icon={Activity}
 				description="Dalam antrian transcoder"
 			/>
 			<StatCard
@@ -120,44 +119,44 @@
 		</div>
 
 		<!-- ─── Quick Actions ─── -->
-		<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+		<div class="grid shrink-0 grid-cols-2 gap-4 sm:grid-cols-4">
 			<a
 				href="/admin/videos"
-				class="flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-primary hover:bg-primary/5 hover:text-primary dark:bg-bg-secondary dark:hover:bg-primary/10"
+				class="group flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-primary hover:bg-primary/5 hover:text-primary dark:bg-bg-secondary dark:hover:bg-primary/10"
 			>
-				<PlaySquare size={24} class="text-slate-400 group-hover:text-primary" />
+				<SquarePlay size={24} class="text-slate-400 transition-colors group-hover:text-primary" />
 				<span class="text-sm font-semibold">Video Library</span>
 			</a>
 			<a
 				href="/admin/transcoder"
-				class="flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:bg-bg-secondary dark:hover:bg-amber-500/10 dark:hover:text-amber-500"
+				class="group flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:bg-bg-secondary dark:hover:bg-amber-500/10 dark:hover:text-amber-500"
 			>
-				<LoaderCircle size={24} class="text-slate-400" />
+				<Activity size={24} class="text-slate-400 transition-colors group-hover:text-amber-500" />
 				<span class="text-sm font-semibold">Antrian Jobs</span>
 			</a>
 			<a
 				href="/admin/presets"
-				class="flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-bg-secondary dark:hover:bg-emerald-500/10 dark:hover:text-emerald-500"
+				class="group flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-bg-secondary dark:hover:bg-emerald-500/10 dark:hover:text-emerald-500"
 			>
-				<Settings2 size={24} class="text-slate-400" />
+				<Settings2 size={24} class="text-slate-400 transition-colors group-hover:text-emerald-500" />
 				<span class="text-sm font-semibold">Kualitas Preset</span>
 			</a>
 			<a
 				href="/admin/users"
-				class="flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:bg-bg-secondary dark:hover:bg-blue-500/10 dark:hover:text-blue-500"
+				class="group flex flex-col items-center gap-2 rounded-xl border border-border-base bg-white p-4 text-center transition-all hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:bg-bg-secondary dark:hover:bg-blue-500/10 dark:hover:text-blue-500"
 			>
-				<Users size={24} class="text-slate-400" />
+				<Users size={24} class="text-slate-400 transition-colors group-hover:text-blue-500" />
 				<span class="text-sm font-semibold">Manajemen User</span>
 			</a>
 		</div>
 
 		<!-- ─── Recent Activity (2 Kolom) ─── -->
-		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+		<div class="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Video Terbaru -->
 			<div
-				class="flex flex-col rounded-xl border border-border-base bg-white shadow-sm dark:bg-bg-secondary"
+				class="flex h-full flex-col overflow-hidden rounded-xl border border-border-base bg-white shadow-sm dark:bg-bg-secondary"
 			>
-				<div class="flex items-center justify-between border-b border-border-base px-5 py-4">
+				<div class="flex shrink-0 items-center justify-between border-b border-border-base px-5 py-4">
 					<h2
 						class="text-xs font-bold tracking-wider text-slate-400 uppercase dark:text-text-muted"
 					>
@@ -168,7 +167,7 @@
 					>
 				</div>
 
-				<ul class="flex-1 divide-y divide-border-base">
+				<ul class="flex-1 overflow-y-auto divide-y divide-border-base">
 					{#if data.recentVideos.length === 0}
 						<li class="flex items-center justify-center py-10 text-sm text-text-muted">
 							Belum ada video
@@ -212,9 +211,9 @@
 
 			<!-- Job Gagal Terbaru -->
 			<div
-				class="flex flex-col rounded-xl border border-border-base bg-white shadow-sm dark:bg-bg-secondary"
+				class="flex h-full flex-col overflow-hidden rounded-xl border border-border-base bg-white shadow-sm dark:bg-bg-secondary"
 			>
-				<div class="flex items-center justify-between border-b border-border-base px-5 py-4">
+				<div class="flex shrink-0 items-center justify-between border-b border-border-base px-5 py-4">
 					<h2
 						class="text-xs font-bold tracking-wider text-slate-400 uppercase dark:text-text-muted"
 					>
@@ -225,7 +224,7 @@
 					>
 				</div>
 
-				<ul class="flex-1 divide-y divide-border-base">
+				<ul class="flex-1 overflow-y-auto divide-y divide-border-base">
 					{#if data.recentFailedJobs.length === 0}
 						<li class="flex items-center justify-center py-10 text-sm text-text-muted">
 							Tidak ada job yang gagal

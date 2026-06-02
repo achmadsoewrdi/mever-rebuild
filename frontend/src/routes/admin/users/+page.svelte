@@ -107,19 +107,19 @@
 	});
 </script>
 
-<!-- Snippet untuk icon pencarian di dalam Input -->
 {#snippet searchIcon()}
 	<Search size={18} class="text-text-muted" />
 {/snippet}
 
 <div class="space-y-6 px-2">
-	<!-- Search Bar menggunakan Component Input Anda -->
+	
 	<div class="w-full">
 		<Input
 			placeholder="Search by name or email..."
 			bind:value={searchQuery}
 			leadingIcon={searchIcon}
-			variant="filled"
+			variant="outline"
+			class="rounded-xl bg-white shadow-sm dark:bg-bg-secondary"
 		/>
 	</div>
 
@@ -139,7 +139,7 @@
 
 	<!-- Pagination Component (Terpisah) -->
 	{#if !loading}
-		<div class="-mt-3">
+		<div class="mt-4">
 			<Pagination {currentPage} {totalPages} {itemsPerPage} onPageChange={handlePageChange} />
 		</div>
 	{/if}

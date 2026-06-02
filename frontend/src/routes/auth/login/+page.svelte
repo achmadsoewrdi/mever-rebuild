@@ -13,9 +13,11 @@
 	let userId = $state('');
 	let otpauthUrl = $state('');
 	let rememberMeState = $state(false);
+	let loginError = $state<string | null>(null);
 
 	async function handleLoginSubmit(data: LoginInput, rememberMe: boolean) {
 		rememberMeState = rememberMe;
+		loginError = null;
 		try {
 			const res = await loginApi(data);
 			const userData = res.data;
@@ -43,8 +45,7 @@
 				return;
 			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Gagal Login';
-			toast.error(errorMessage);
+			loginError = error instanceof Error ? error.message : 'Email atau password salah';
 		}
 	}
 
@@ -122,7 +123,11 @@
 		class="w-full max-w-md rounded-2xl border border-slate-200 p-8 shadow-xl dark:border-bg-surface dark:bg-bg-secondary"
 	>
 		{#if flow === 'login'}
-			<LoginForm onSubmit={handleLoginSubmit} />
+			<LoginForm 
+				onSubmit={handleLoginSubmit} 
+				errorMessage={loginError}
+				onErrorDismiss={() => (loginError = null)}
+			/>
 		{:else if flow === 'mfa_setup'}
 			<MfaQrSetup {otpauthUrl} onVerify={handleMfaSetupVerify} />
 		{:else if flow === 'mfa_verify'}

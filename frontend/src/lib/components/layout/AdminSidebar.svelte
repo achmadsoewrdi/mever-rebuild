@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { LayoutDashboard, Film, Users, Sliders, User, LogOut, Settings, HardDrive } from 'lucide-svelte';
+	import { LayoutDashboard, Film, Users, Sliders,Settings, HardDrive } from 'lucide-svelte';
 	import logoImage from '$lib/assets/image.png';
 
 	function isActive(path: string) {
@@ -11,8 +11,7 @@
 	}
 </script>
 
-<aside class="flex h-full w-64 flex-col border-r border-border-base bg-bg-secondary text-text-main">
-	<!-- Logo Section (Sesuai Gambar) -->
+<aside class="flex h-full w-64 flex-col border-r border-slate-200 bg-white text-text-main dark:border-border-base/50 dark:bg-bg-secondary">
 	<div class="flex flex-col items-center justify-center border-b border-border-base px-6 py-8">
 		<img src={logoImage} alt="Mever Logo" class="h-10 w-auto object-contain" />
 		<p class="mt-2 text-[10px] font-bold tracking-[3px] text-slate-400 uppercase">
@@ -116,26 +115,6 @@
 		</nav>
 
 		<!-- Menu Bawah -->
-		<nav class="space-y-2 border-t border-slate-100 pt-4 dark:border-border-base/30">
-			<!-- My Account -->
-			<a
-				href="/dashboard/settings"
-				class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50 dark:text-text-muted dark:hover:bg-bg-elevated"
-			>
-				<User size={20} />
-				My Account
-			</a>
-
-			<!-- Sign Out -->
-			<button
-				class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50 dark:text-text-muted dark:hover:bg-bg-elevated"
-				onclick={() => {
-					/* Masukkan logika logout kamu di sini */
-				}}
-			>
-				<LogOut size={20} />
-				Sign Out
-			</button>
-		</nav>
+		
 	</div>
 </aside>
