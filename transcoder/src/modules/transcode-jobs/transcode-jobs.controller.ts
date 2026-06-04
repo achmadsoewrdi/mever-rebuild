@@ -13,6 +13,7 @@ import { updateRedisJobId } from "./transcode-jobs.repository";
 import {
   downloadFromMinio,
   uploadToMinio,
+  uploadBufferToMinio,
   createThumbnail,
   transcodeVideo,
 } from "./transcode-jobs.service";
@@ -28,6 +29,8 @@ import {
   updateVideoMetadata,
   incrementDoneJobs,
   createAsset,
+  getAssetsByVideoId,
+  updateVideoStreamUrl,
 } from "./videos.repository";
 
 import {
@@ -258,6 +261,13 @@ export const listenUploadQueue = async () => {
         const lower = resString.toLowerCase();
         if (lower === "4k") return 2160;
         if (lower === "2k") return 1440;
+        
+        // Tangani format "1920x1080" (ambil angka setelah 'x')
+        if (lower.includes("x")) {
+          const parts = lower.split("x");
+          return parseInt(parts[1].replace(/\D/g, ""), 10) || 0;
+        }
+        
         return parseInt(lower.replace(/\D/g, ""), 10) || 0;
       };
 
@@ -303,7 +313,15 @@ export const listenUploadQueue = async () => {
       }
 
       for (const preset of finalPresetsToRender) {
-        const outputFilename = `${slug}-${preset.name}.${getExtension(preset.format || "mp4")}`;
+        // Tentukan ekstensi berdasarkan codec
+        // VP9/AV1 → webm, semua lainnya → mp4
+        const getOutputExtension = (codec: string) => {
+          if (["vp9", "vp8", "av1"].includes(codec?.toLowerCase())) return "webm";
+          return "mp4";
+        };
+
+        const safePresetName = preset.name.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+        const outputFilename = `${slug}-${safePresetName}.${getOutputExtension(preset.codec || "h264")}`;
 
         jobsToInsert.push({
           videoId: videoData.id,
@@ -311,14 +329,7 @@ export const listenUploadQueue = async () => {
           outputFilename,
         });
 
-        const packagerFormat = preset.format?.toLowerCase() || "";
-        const packager = packagerFormat.includes("hls")
-          ? "hls"
-          : packagerFormat.includes("dash")
-            ? "dash"
-            : "plain";
-        const resolutionHeight =
-          parseResolutionHeight(preset.resolution) || 720;
+        const resolutionHeight = parseResolutionHeight(preset.resolution) || 720;
 
         jobMessages.push({
           videoId: videoData.id,
@@ -330,7 +341,8 @@ export const listenUploadQueue = async () => {
           codec: preset.codec || "h264",
           resolutionName: preset.name,
           resolutionHeight: resolutionHeight,
-          packager: packager,
+          bitrateKbps: preset.bitrateKbps,
+          packager: "plain",
           slug: slug,
         });
       }
@@ -388,7 +400,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const {
         jobId, videoId, presetId, sourcePath, outputFilename,
         codec, resolutionHeight, resolutionName, packager, slug, totalJobs,
-        storageConfigId
+        storageConfigId, bitrateKbps
     } = jobData;
 
     console.log(`\n[Job ${job.id}] Memulai render | Resolusi: ${resolutionName}`);
@@ -424,7 +436,8 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
         await job.updateProgress(percent); 
         // Update ke DB untuk frontend
         await updateJobProgress(jobId, percent).catch(() => null);
-      }
+      },
+      bitrateKbps
     );
 
     // FIX DASH PATH
@@ -468,8 +481,11 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const protocol = getProtocol(codec, packager);
     const newAsset = await createAsset({
       videoId, presetId, jobId, codec,
-      format: packager === "dash" ? "mpd" : packager === "hls" ? "m3u8" : "mp4",
-      protocol, resolution: resolutionName,
+      format: "mp4",
+      protocol: "plain",
+      resolution: resolutionName,
+      bitrateKbps: bitrateKbps,
+      storagePath: minioOutputPath,
       manifestUrl: `${hostProtocol}${configData.endpointUrl}/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
@@ -483,7 +499,56 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     console.log(`[Job ${job.id}] Render ${resolutionName} selesai! (${doneCount}/${totalCount})`);
 
     if (doneCount >= totalCount) {
-      console.log(`\n[Job ${job.id}] Semua resolusi selesai untuk video ini!`);
+      console.log(`\n[Job ${job.id}] ✅ Semua resolusi selesai untuk video: ${slug}`);
+
+      try {
+        // --------------------------------------------------------
+        // Generate Nginx VOD JSON mapping
+        // Format path: /http/minio:9000/bucket/objectPath
+        // --------------------------------------------------------
+        const allAssets = await getAssetsByVideoId(videoId);
+
+        const getResHeight = (res: string) =>
+          parseInt(res.replace(/\D/g, ""), 10) || 0;
+
+        const sortedAssets = allAssets
+          .filter((a) => a.storagePath)
+          .sort((a, b) => getResHeight(b.resolution) - getResHeight(a.resolution));
+
+        if (sortedAssets.length > 0) {
+          const nginxMinioHost = env.NGINX_MINIO_INTERNAL_HOST;
+
+          const nginxJson = {
+            sequences: sortedAssets.map((asset) => ({
+              id: asset.resolution,
+              clips: [{
+                type: "source",
+                path: `/http/${nginxMinioHost}/${configData.bucketOutput}/${asset.storagePath}`,
+              }],
+            })),
+          };
+
+          const jsonPath = `videos/${slug}/index.json`;
+          await uploadBufferToMinio(
+            decryptedConfig,
+            JSON.stringify(nginxJson, null, 2),
+            configData.bucketOutput!,
+            jsonPath,
+          );
+          console.log(`[Nginx VOD JSON] Berhasil diupload: ${jsonPath}`);
+
+          const streamUrl = `/video/videos/${slug}/index.json/master.m3u8`;
+          await updateVideoStreamUrl(videoId, streamUrl);
+          console.log(`[Stream URL] Tersimpan: ${streamUrl}`);
+        } else {
+          console.warn(
+            `[Nginx VOD JSON] Tidak ada asset untuk video ${videoId}`,
+          );
+        }
+      } catch (jsonErr: any) {
+        console.error(`[Nginx VOD JSON ERROR]:`, jsonErr.message);
+      }
+
       await updateVideoStatus(videoId, "ready");
       await invalidateVideosCache(videoId);
       await fs.unlink(localSourcePath).catch(() => null);

@@ -1,4 +1,4 @@
-import { eq, ilike, and, desc, inArray, exists, ne } from "drizzle-orm";
+import { eq, ilike, and, desc, inArray, exists, ne, or, isNotNull } from "drizzle-orm";
 import { db } from "../../loaders";
 import { videos, videoAssets } from "../../../drizzle/schema";
 import { VideoFilterInput } from "./videos.schema";
@@ -9,19 +9,36 @@ type Video = typeof videos.$inferSelect;
 //  REPOSITORY: Videos
 // ============================================
 
-export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> => {
+export const findAllVideos = async (
+  filter: VideoFilterInput,
+): Promise<Video[]> => {
   console.log("--------------------------------------------------");
   console.log("[BACKEND REPO] Memproses filter:", JSON.stringify(filter));
   console.log("[BACKEND REPO] CWD:", process.cwd());
-  
-  const { status, search, protocols, encoders, resolutions, limit = 10, page = 1 } = filter;
+
+  const {
+    status,
+    search,
+    protocols,
+    encoders,
+    resolutions,
+    limit = 10,
+    page = 1,
+  } = filter;
   const whereConditions = [];
 
   if (status) {
     whereConditions.push(eq(videos.status, status as any));
   } else {
     // Tampilkan hanya video yang tidak gagal
-    whereConditions.push(inArray(videos.status, ["uploading", "queued", "processing", "ready"] as any));
+    whereConditions.push(
+      inArray(videos.status, [
+        "uploading",
+        "queued",
+        "processing",
+        "ready",
+      ] as any),
+    );
   }
   if (search) {
     whereConditions.push(ilike(videos.title, `%${search}%`));
@@ -40,7 +57,23 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
           inArray(videoAssets.protocol, validProtocols as any),
         ),
       );
-    whereConditions.push(exists(subquery));
+
+    // Cek apakah filter mengandung hls atau dash (huruf kecil semua sesuai standard di DB)
+    const lowerProtocols = validProtocols.map(p => p.toLowerCase());
+    const wantsVirtual = lowerProtocols.includes("hls") || lowerProtocols.includes("dash");
+
+    if (wantsVirtual) {
+      // Jika butuh HLS/DASH, kembalikan video dengan format lama (exists) 
+      // ATAU video baru yang punya Nginx VOD stream (streamUrl != null)
+      whereConditions.push(
+        or(
+          exists(subquery),
+          isNotNull(videos.streamUrl)
+        )
+      );
+    } else {
+      whereConditions.push(exists(subquery));
+    }
   }
 
   // Filter Encoders (Join dengan video_assets agar sinkron dengan UI Tags)
@@ -77,7 +110,7 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
 
   const offset = (page - 1) * limit;
   console.log("[REPO] Total kondisi WHERE:", whereConditions.length);
-  
+
   const query = db
     .select()
     .from(videos)
@@ -93,16 +126,28 @@ export const findAllVideos = async (filter: VideoFilterInput): Promise<Video[]> 
 };
 
 export const findVideoById = async (id: string): Promise<Video | undefined> => {
-  const result = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(videos)
+    .where(eq(videos.id, id))
+    .limit(1);
   return result[0];
 };
 
-export const findVideoBySlug = async (slug: string): Promise<Video | undefined> => {
-  const result = await db.select().from(videos).where(eq(videos.slug, slug)).limit(1);
+export const findVideoBySlug = async (
+  slug: string,
+): Promise<Video | undefined> => {
+  const result = await db
+    .select()
+    .from(videos)
+    .where(eq(videos.slug, slug))
+    .limit(1);
   return result[0];
 };
 
-export const createVideo = async (data: typeof videos.$inferInsert): Promise<Video> => {
+export const createVideo = async (
+  data: typeof videos.$inferInsert,
+): Promise<Video> => {
   const result = await db.insert(videos).values(data).returning();
   return result[0];
 };
@@ -114,5 +159,15 @@ export const updateVideoStatus = async (
   await db
     .update(videos)
     .set({ status, updatedAt: new Date() })
+    .where(eq(videos.id, id));
+};
+
+export const updateVideoStreamUrl = async (
+  id: string,
+  streamUrl: string,
+): Promise<void> => {
+  await db
+    .update(videos)
+    .set({ streamUrl, updatedAt: new Date() })
     .where(eq(videos.id, id));
 };

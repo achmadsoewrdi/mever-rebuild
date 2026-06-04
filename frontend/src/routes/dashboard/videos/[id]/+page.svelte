@@ -13,8 +13,10 @@
 	import VideoPlayer from '$lib/components/video/VideoPlayer.svelte';
 	import VideoDebugPanel from '$lib/components/video/VideoDebugPanel.svelte';
 	import type { DebugStats } from '$lib/components/video/VideoDebugPanel.svelte';
+	import type { VideoStreamInfo } from '$lib/types/video.types';
 
 	let video = $state<Video | null>(null);
+	let streamInfo = $state<VideoStreamInfo | null>(null);
 	let isLoading = $state(true);
 	let showVideoDebug = $state(false);
 	let videoDebugStats = $state<DebugStats>({
@@ -69,15 +71,17 @@
 		if (!videoId) return;
 		isLoading = true;
 		try {
-			const [videoRes, assetsRes] = await Promise.all([
+			const [videoRes, assetsRes, streamRes] = await Promise.all([
 				videoApi.getVideoById(videoId),
-				videoApi.getVideoAssets(videoId)
+				videoApi.getVideoAssets(videoId),
+				videoApi.getVideoStream(videoId).catch(() => ({ data: null }))
 			]);
 
 			video = videoRes.data;
 			if (video) {
 				video.assets = assetsRes.data;
 			}
+			streamInfo = streamRes?.data;
 		} catch (error) {
 			console.error('Gagal mengambil detail video:', error);
 		} finally {
@@ -170,25 +174,33 @@
 			class="mx-auto w-full max-w-7xl overflow-hidden rounded-3xl border border-border-base bg-bg-secondary shadow-xl ring-1 ring-black/5"
 		>
 			<!-- VIDEO AREA -->
-			<div class="bg-black relative">
+			<div class="relative bg-black">
 				{#if showVideoDebug}
 					<div class="animate-in fade-in absolute top-3 left-3 z-20 duration-200">
 						<VideoDebugPanel stats={videoDebugStats} onClose={() => (showVideoDebug = false)} />
 					</div>
 				{/if}
-				{#if videoSrc}
+				{#if streamInfo?.hlsUrl}
+					<VideoPlayer
+						src={streamInfo.hlsUrl}
+						videoType="application/x-mpegURL"
+						poster={streamInfo.thumbnailUrl || video?.thumbnailUrl}
+						bind:showDebug={showVideoDebug}
+						bind:debugStats={videoDebugStats}
+					/>
+				{:else if videoSrc}
 					{#key selectedAssetId}
-						<VideoPlayer 
-							src={videoSrc} 
-							{videoType} 
-							poster={video.thumbnailUrl} 
-							bind:showDebug={showVideoDebug} 
-							bind:debugStats={videoDebugStats} 
+						<VideoPlayer
+							src={videoSrc}
+							{videoType}
+							poster={video?.thumbnailUrl}
+							bind:showDebug={showVideoDebug}
+							bind:debugStats={videoDebugStats}
 						/>
 					{/key}
 				{:else}
 					<div class="flex aspect-[2.1/1] w-full items-center justify-center bg-slate-950">
-						<p class="text-sm text-slate-500">Tidak ada stream tersedia untuk protokol ini.</p>
+						<p class="text-sm text-slate-500">Video belum diproses atau tidak tersedia.</p>
 					</div>
 				{/if}
 			</div>

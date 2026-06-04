@@ -29,6 +29,7 @@ export const videos = pgTable("videos", {
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
   totalJobs: integer("total_jobs").default(0),
   doneJobs: integer("done_jobs").default(0),
+  streamUrl: varchar("stream_url", { length: 500 }),
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

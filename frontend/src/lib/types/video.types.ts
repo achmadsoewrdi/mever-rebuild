@@ -90,3 +90,17 @@ export interface UploadResponse {
 	video: Video;
 	uploadUrl: string;
 }
+
+/**
+ * Informasi streaming (HLS/DASH) dari Nginx VOD
+ */
+export interface VideoStreamInfo {
+	videoId: string;
+	title: string;
+	thumbnailUrl: string | null;
+	hlsUrl: string;
+	dashUrl: string;
+	status: string;
+	durationSeconds: number | null;
+}
+

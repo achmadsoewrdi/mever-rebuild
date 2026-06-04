@@ -1,0 +1,1 @@
+ALTER TABLE "videos" ADD COLUMN "stream_url" varchar(500);

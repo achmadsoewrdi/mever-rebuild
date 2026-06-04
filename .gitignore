@@ -1,4 +1,5 @@
 DEVELOPMENT_STEPS.md
+NGINX_VOD_INTEGRATION.md
 backend/.env
 backend/node_modules
 backend/dist

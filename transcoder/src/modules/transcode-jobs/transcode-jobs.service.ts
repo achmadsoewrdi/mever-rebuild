@@ -76,6 +76,30 @@ export const uploadToMinio = async (
   }
 };
 
+// Upload dari buffer/string — untuk upload JSON ke MinIO tanpa file fisik di disk
+export const uploadBufferToMinio = async (
+  config: any,
+  content: string,
+  bucket: string,
+  objectName: string,
+  contentType: string = "application/json",
+): Promise<void> => {
+  const client = getDynamicS3Client(config);
+  const buffer = Buffer.from(content, "utf-8");
+  try {
+    await client.putObject(bucket, objectName, buffer, buffer.length, {
+      "Content-Type": contentType,
+    });
+    console.log(`[MINIO UPLOAD BUFFER] sukses: ${objectName}`);
+  } catch (err: any) {
+    console.error(
+      `[MINIO UPLOAD BUFFER ERROR] Gagal mengunggah ${objectName}:`,
+      err.message,
+    );
+    throw err;
+  }
+};
+
 // remove from minio
 export const removeFromMinio = async (
   config: any,
@@ -134,10 +158,11 @@ export const transcodeVideo = async (
   packager: "hls" | "dash" | "plain",
   segmentPrefix: string,
   onProgress: (percent: number) => void,
+  bitrateKbps?: number,
 ): Promise<void> => {
   const bestCodec = await getBestEncoder(codec as any);
   console.log(
-    `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec}`,
+    `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec} ${bitrateKbps ? `(Target Bitrate: ${bitrateKbps} kbps)` : ""}`,
   );
   const outputDir = path.dirname(outputPath);
 
@@ -164,14 +189,25 @@ export const transcodeVideo = async (
 
       // Preset per encoder
       if (effectiveCodec.includes("nvenc")) {
-        command = command.addOption("-preset", "fast").addOption("-rc", "vbr").addOption("-cq", "23");
+        command = command.addOption("-preset", "fast");
+        if (!bitrateKbps) command = command.addOption("-rc", "vbr").addOption("-cq", "23");
       } else if (effectiveCodec.includes("qsv")) {
-        command = command.addOption("-preset", "veryfast").addOption("-global_quality", "23");
+        command = command.addOption("-preset", "veryfast");
+        if (!bitrateKbps) command = command.addOption("-global_quality", "23");
       } else if (effectiveCodec.includes("amf")) {
         command = command.addOption("-quality", "balanced");
       } else {
         // CPU encoder (libx264/libx265)
-        command = command.addOption("-preset", "veryfast").addOption("-crf", "23");
+        command = command.addOption("-preset", "veryfast");
+        if (!bitrateKbps) command = command.addOption("-crf", "23");
+      }
+
+      // Penerapan Bitrate jika ditentukan dari preset database
+      if (bitrateKbps && bitrateKbps > 0) {
+        command = command
+          .addOption("-b:v", `${bitrateKbps}k`)
+          .addOption("-maxrate", `${bitrateKbps}k`)
+          .addOption("-bufsize", `${bitrateKbps * 2}k`);
       }
 
       // Paksa 8-bit yuv420p agar dapat diputar di semua browser
