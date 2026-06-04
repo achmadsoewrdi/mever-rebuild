@@ -103,6 +103,11 @@ export const handleConfirmUpload = async (
       .status(200)
       .send(SuccessResponse(null, "Upload terkonfirmasi. Video siap ditonton"));
   } catch (err: any) {
+    if (err.message === "VIDEO_ALREADY_CONFIRMED") {
+      return reply
+        .status(200)
+        .send(SuccessResponse(null, "Upload sudah terkonfirmasi sebelumnya."));
+    }
     console.error("Confirm Upload Error:", err);
     reply.status(500).send(errorResponse("Terjadi kesalahan server"));
   }

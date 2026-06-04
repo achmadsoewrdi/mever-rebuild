@@ -182,13 +182,19 @@ export const listenUploadQueue = async () => {
       // Video diunduh SEKALI di sini, lalu path-nya dibagikan ke semua
       // job transcode agar mereka tidak perlu mengunduh ulang.
       // ---------------------------------------------------------------
-      console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO/S3: ${rawPath}`);
-      await downloadFromMinio(
-        decryptedConfig,
-        configData.bucketInput!,
-        rawPath,
-        localSourcePath,
-      );
+      console.log(`[UPLOAD WORKER] Memeriksa file lokal: ${localSourcePath}`);
+      try {
+        await fs.access(localSourcePath);
+        console.log(`[UPLOAD WORKER] File sudah ada secara lokal, melewati unduhan.`);
+      } catch {
+        console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO/S3: ${rawPath}`);
+        await downloadFromMinio(
+          decryptedConfig,
+          configData.bucketInput!,
+          rawPath,
+          localSourcePath,
+        );
+      }
 
       // ---------------------------------------------------------------
       // Analisis metadata video (Resolusi, Durasi, Ukuran, Codec, Format)
@@ -240,6 +246,28 @@ export const listenUploadQueue = async () => {
         );
       }
 
+      // -----------------------------------------------
+      // SMART MATCHING: Filter presets based on source codec & format
+      // -----------------------------------------------
+      let matchingPresets = activePresets.filter(p => {
+        const pCodec = p.codec?.toLowerCase() || "h264";
+        const mCodec = codec.toLowerCase();
+        const codecMatch = mCodec.includes(pCodec) || pCodec.includes(mCodec) || (mCodec === "hevc" && pCodec === "h265");
+        
+        const pFormat = p.format?.toLowerCase() || "mp4";
+        const mFormat = formatName.toLowerCase();
+        const formatMatch = mFormat.includes(pFormat) || pFormat.includes(mFormat) || (mFormat.includes("matroska") && pFormat === "mkv") || (mFormat.includes("quicktime") && pFormat === "mov");
+
+        return codecMatch && formatMatch;
+      });
+
+      if (matchingPresets.length === 0) {
+        console.warn(`[UPLOAD WORKER] Smart Matching: Tidak ada preset untuk codec ${codec} dan format ${formatName}. Fallback ke H.264/MP4.`);
+        matchingPresets = activePresets.filter(p => (p.codec?.toLowerCase() || "h264") === "h264" && (p.format?.toLowerCase() || "mp4") === "mp4");
+        // Jika tidak ada preset H.264/MP4 sama sekali, gunakan semua preset sebagai fallback terakhir
+        if (matchingPresets.length === 0) matchingPresets = activePresets;
+      }
+
       // ---------------------------------------------------------------
       // KONSTRUKSI DISTRIBUTION SUITE BERDASARKAN PRESET
       // ---------------------------------------------------------------
@@ -252,6 +280,7 @@ export const listenUploadQueue = async () => {
         if (fmt.includes("dash")) return "mpd";
         if (fmt.includes("webm")) return "webm";
         if (fmt.includes("mkv")) return "mkv";
+        if (fmt.includes("mov")) return "mov";
         return "mp4";
       };
 
@@ -272,7 +301,7 @@ export const listenUploadQueue = async () => {
       };
 
       // 1. Urutkan preset dari resolusi tertinggi ke terendah
-      const sortedPresets = [...activePresets].sort((a, b) => {
+      const sortedPresets = [...matchingPresets].sort((a, b) => {
         return (
           parseResolutionHeight(b.resolution) -
           parseResolutionHeight(a.resolution)
@@ -313,15 +342,16 @@ export const listenUploadQueue = async () => {
       }
 
       for (const preset of finalPresetsToRender) {
-        // Tentukan ekstensi berdasarkan codec
-        // VP9/AV1 → webm, semua lainnya → mp4
-        const getOutputExtension = (codec: string) => {
-          if (["vp9", "vp8", "av1"].includes(codec?.toLowerCase())) return "webm";
+        const getOutputExtension = (format: string, codec: string) => {
+          const fmt = format?.toLowerCase() || "";
+          if (fmt.includes("mov")) return "mov";
+          if (fmt.includes("mkv")) return "mkv";
+          if (fmt.includes("webm") || ["vp9", "vp8", "av1"].includes(codec?.toLowerCase())) return "webm";
           return "mp4";
         };
 
         const safePresetName = preset.name.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
-        const outputFilename = `${slug}-${safePresetName}.${getOutputExtension(preset.codec || "h264")}`;
+        const outputFilename = `${slug}-${safePresetName}.${getOutputExtension(preset.format, preset.codec || "h264")}`;
 
         jobsToInsert.push({
           videoId: videoData.id,
@@ -458,7 +488,8 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
       }
     }
 
-    const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
+    const safeResolutionName = resolutionName.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    const minioOutputPath = `videos/${slug}/${safeResolutionName}/${outputFilename}`;
     await uploadToMinio(decryptedConfig, localOutputPath, configData.bucketOutput!, minioOutputPath);
 
     if (packager === "hls" || packager === "dash") {
@@ -479,14 +510,15 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
 
     let hostProtocol = configData.endpointUrl!.startsWith("http") ? "" : "https://";
     const protocol = getProtocol(codec, packager);
+    const ext = outputFilename.split('.').pop() || "mp4";
     const newAsset = await createAsset({
       videoId, presetId, jobId, codec,
-      format: "mp4",
+      format: ext,
       protocol: "plain",
       resolution: resolutionName,
       bitrateKbps: bitrateKbps,
       storagePath: minioOutputPath,
-      manifestUrl: `${hostProtocol}${configData.endpointUrl}/${configData.bucketOutput}/${minioOutputPath}`,
+      manifestUrl: `http://localhost:8080/raw/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
     await setJobCompleted(jobId, newAsset.id);

@@ -115,6 +115,12 @@ export const requestUpload = async (
 };
 
 export const confirmUpload = async (videoId: string): Promise<void> => {
+  const video = await findVideoById(videoId);
+  if (!video) throw new Error("VIDEO_NOT_FOUND");
+  if (video.status !== "uploading") {
+    throw new Error("VIDEO_ALREADY_CONFIRMED");
+  }
+
   await updateVideoStatus(videoId, "queued");
 
   // Hapus cache list videos dan cache detail video

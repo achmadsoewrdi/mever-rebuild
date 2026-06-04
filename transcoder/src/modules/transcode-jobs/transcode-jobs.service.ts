@@ -36,6 +36,8 @@ export const getDynamicS3Client = (config: any) => {
   });
 };
 
+import fs from "fs";
+
 // download from minio
 export const downloadFromMinio = async (
   config: any,
@@ -45,7 +47,14 @@ export const downloadFromMinio = async (
 ): Promise<void> => {
   const client = getDynamicS3Client(config);
   try {
-    await client.fGetObject(bucket, objectName, LocalPath);
+    const dataStream = await client.getObject(bucket, objectName);
+    const writeStream = fs.createWriteStream(LocalPath);
+    await new Promise((resolve, reject) => {
+      dataStream.pipe(writeStream);
+      dataStream.on("error", reject);
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
     console.log(`[MINIO DOWNLOAD] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(
@@ -236,12 +245,13 @@ export const transcodeVideo = async (
           .addOption("-adaptation_sets", "id=0,streams=v id=1,streams=a")
           .addOption("-f", "dash");
       } else {
-        // plain: pilih format kontainer berdasarkan codec
-        // VP9/AV1 → WebM | H.265 → MKV | H.264 → MP4
-        if (effectiveCodec.includes("vp9") || effectiveCodec.includes("vp8") || effectiveCodec.includes("av1")) {
+        // plain: pilih format kontainer berdasarkan codec ATAU ekstensi file output
+        if (outputPath.endsWith(".webm")) {
           command = command.addOption("-f", "webm");
-        } else if (effectiveCodec.includes("x265") || effectiveCodec.includes("hevc")) {
+        } else if (outputPath.endsWith(".mkv")) {
           command = command.addOption("-f", "matroska"); // MKV
+        } else if (outputPath.endsWith(".mov")) {
+          command = command.addOption("-f", "mov").addOption("-movflags", "+faststart");
         } else {
           command = command.addOption("-movflags", "+faststart").addOption("-f", "mp4");
         }

@@ -32,9 +32,12 @@
 	const videoId = $derived($page.params.id);
 
 	// Helper untuk mendapatkan MIME type video.js
-	function getMimeType(protocol?: string) {
+	function getMimeType(protocol?: string, format?: string) {
 		if (protocol === 'dash') return 'application/dash+xml';
 		if (protocol === 'hls') return 'application/x-mpegURL';
+		if (format === 'mov') return 'video/quicktime';
+		if (format === 'webm') return 'video/webm';
+		if (format === 'mkv') return 'video/x-matroska';
 		return 'video/mp4';
 	}
 
@@ -47,12 +50,21 @@
 		video?.assets?.find((a) => a.id === selectedAssetId) || video?.assets?.[0]
 	);
 	const videoSrc = $derived(mainAsset?.manifestUrl || '');
-	const videoType = $derived(getMimeType(mainAsset?.protocol));
+	const videoType = $derived(getMimeType(mainAsset?.protocol, mainAsset?.format));
 
 	// Helper Label Dropdown
-	function getAssetLabel(asset: VideoAsset) {
-		const height = asset.resolution.split('x')[1] || asset.resolution;
-		const resLabel = height.includes('p') ? height : `${height}p`;
+	function getAssetLabel(asset: VideoAsset | { id: string, protocol: string, resolution: string }) {
+		if (asset.id === 'auto-hls') return 'Auto (Adaptive HLS)';
+		
+		// Ekstrak hanya resolusi (misal: "1080p", "4k") dari string yang mungkin panjang seperti "360p Matroska (MKV)"
+		const match = asset.resolution.match(/\b\d+p\b|\b4k\b/i);
+		let resLabel = match ? match[0].toLowerCase() : asset.resolution;
+		
+		// Jika resolusi dari format '1920x1080'
+		if (!match && asset.resolution.includes('x')) {
+			const height = asset.resolution.split('x')[1];
+			if (height) resLabel = `${height}p`;
+		}
 
 		if (asset.protocol === 'plain') {
 			return `Plain (${resLabel})`;
@@ -63,7 +75,11 @@
 	// Set default asset saat data video masuk
 	$effect(() => {
 		if (video?.assets?.length && !selectedAssetId) {
-			selectedAssetId = video.assets[0].id;
+			if (streamInfo?.hlsUrl) {
+				selectedAssetId = 'auto-hls';
+			} else {
+				selectedAssetId = video.assets[0].id;
+			}
 		}
 	});
 
@@ -105,7 +121,11 @@
 	};
 
 	const resolutionDisplay = $derived(
-		mainAsset?.resolution ? resolutionMap[mainAsset.resolution] || mainAsset.resolution : 'N/A'
+		mainAsset?.resolution ? (() => {
+			if (resolutionMap[mainAsset.resolution]) return resolutionMap[mainAsset.resolution];
+			const match = mainAsset.resolution.match(/\b\d+p\b|\b4k\b/i);
+			return match ? match[0].toLowerCase() : mainAsset.resolution;
+		})() : 'N/A'
 	);
 
 	function formatDurationHuman(seconds: number): string {
@@ -180,7 +200,7 @@
 						<VideoDebugPanel stats={videoDebugStats} onClose={() => (showVideoDebug = false)} />
 					</div>
 				{/if}
-				{#if streamInfo?.hlsUrl}
+				{#if selectedAssetId === 'auto-hls' && streamInfo?.hlsUrl}
 					<VideoPlayer
 						src={streamInfo.hlsUrl}
 						videoType="application/x-mpegURL"
@@ -245,7 +265,21 @@
 									<div class="p-4 text-center text-xs text-text-muted">No assets available</div>
 								{:else}
 									<div class="flex flex-col gap-0.5">
-										{#each video.assets as asset (asset.id)}
+										{#if streamInfo?.hlsUrl}
+											<button
+												class={`flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedAssetId === 'auto-hls' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10' : ''}`}
+												onclick={() => {
+													selectedAssetId = 'auto-hls';
+													isDropdownOpen = false;
+												}}
+											>
+												<span class="font-medium">Auto (Adaptive HLS)</span>
+												{#if selectedAssetId === 'auto-hls'}
+													<Check size={16} />
+												{/if}
+											</button>
+										{/if}
+										{#each video.assets || [] as asset (asset.id)}
 											<button
 												onclick={() => {
 													selectedAssetId = asset.id;
