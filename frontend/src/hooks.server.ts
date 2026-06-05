@@ -9,7 +9,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.token = token;
 		try {
 			// Coba ekstrak token JWT asli (format: header.payload.signature)
-			const base64Payload = token.split('.')[1];
+			let base64Payload = token.split('.')[1];
+			// Convert Base64Url to Base64
+			base64Payload = base64Payload.replace(/-/g, '+').replace(/_/g, '/');
+			// Add padding if necessary
+			while (base64Payload.length % 4) {
+				base64Payload += '=';
+			}
 			const payload = JSON.parse(atob(base64Payload));
 
 			// Buat format nama & inisial

@@ -249,24 +249,68 @@ export const listenUploadQueue = async () => {
       // -----------------------------------------------
       // SMART MATCHING: Filter presets based on source codec & format
       // -----------------------------------------------
+      //
+      // Aturan matching:
+      // - Preset "hls"  : untuk sumber MP4-family (mov,mp4,ts,mts,dll)
+      //                   BUKAN untuk MKV/WebM yang punya preset sendiri
+      // - Preset "dash" : untuk sumber WebM/Matroska (vp9/av1)
+      // - Preset "mkv"  : hanya untuk sumber Matroska/MKV
+      // - Preset "mov"  : hanya untuk sumber QuickTime/MOV
+      // - Preset "webm" : hanya untuk sumber WebM
+      //
       let matchingPresets = activePresets.filter(p => {
         const pCodec = p.codec?.toLowerCase() || "h264";
         const mCodec = codec.toLowerCase();
         const codecMatch = mCodec.includes(pCodec) || pCodec.includes(mCodec) || (mCodec === "hevc" && pCodec === "h265");
         
+        if (!codecMatch) return false;
+
         const pFormat = p.format?.toLowerCase() || "mp4";
         const mFormat = formatName.toLowerCase();
-        const formatMatch = mFormat.includes(pFormat) || pFormat.includes(mFormat) || (mFormat.includes("matroska") && pFormat === "mkv") || (mFormat.includes("quicktime") && pFormat === "mov");
 
-        return codecMatch && formatMatch;
+        // Tentukan apakah sumber adalah "container khusus" (punya preset sendiri)
+        const isMatroska = mFormat.includes("matroska") || mFormat.includes("mkv");
+        const isWebM     = mFormat.includes("webm");
+        const isSpecializedContainer = isMatroska || isWebM;
+
+        if (pFormat === "hls") {
+          // HLS preset: cocok HANYA untuk sumber MP4-family (bukan matroska/webm)
+          // MP4, MOV, TS, MTS, M4V semuanya cocok ke HLS preset
+          return !isSpecializedContainer;
+        }
+
+        if (pFormat === "dash") {
+          // DASH preset: untuk sumber WebM/Matroska (vp9/av1)
+          return isSpecializedContainer;
+        }
+
+        // Untuk plain container (mkv, mov, webm, mp4): wajib cocok secara format container
+        const formatMatch =
+          mFormat.includes(pFormat) ||
+          pFormat.includes(mFormat) ||
+          (isMatroska && pFormat === "mkv") ||
+          (mFormat.includes("quicktime") && pFormat === "mov");
+
+        return formatMatch;
       });
 
       if (matchingPresets.length === 0) {
-        console.warn(`[UPLOAD WORKER] Smart Matching: Tidak ada preset untuk codec ${codec} dan format ${formatName}. Fallback ke H.264/MP4.`);
-        matchingPresets = activePresets.filter(p => (p.codec?.toLowerCase() || "h264") === "h264" && (p.format?.toLowerCase() || "mp4") === "mp4");
-        // Jika tidak ada preset H.264/MP4 sama sekali, gunakan semua preset sebagai fallback terakhir
+        console.warn(`[UPLOAD WORKER] Smart Matching: Tidak ada preset untuk codec=${codec} format=${formatName}. Fallback ke HLS preset.`);
+        // Fallback: HLS preset dengan codec yang cocok (universal fallback)
+        matchingPresets = activePresets.filter(p => {
+          const pFmt = p.format?.toLowerCase() || "";
+          const pCod = p.codec?.toLowerCase() || "h264";
+          const mCod = codec.toLowerCase();
+          return pFmt === "hls" && (mCod.includes(pCod) || pCod.includes(mCod));
+        });
+        // Fallback terakhir: semua preset HLS
+        if (matchingPresets.length === 0) {
+          matchingPresets = activePresets.filter(p => (p.format?.toLowerCase() || "") === "hls");
+        }
         if (matchingPresets.length === 0) matchingPresets = activePresets;
       }
+
+
 
       // ---------------------------------------------------------------
       // KONSTRUKSI DISTRIBUTION SUITE BERDASARKAN PRESET
@@ -344,6 +388,8 @@ export const listenUploadQueue = async () => {
       for (const preset of finalPresetsToRender) {
         const getOutputExtension = (format: string, codec: string) => {
           const fmt = format?.toLowerCase() || "";
+          // Catatan: HLS/DASH preset tetap output file plain (.mp4)
+          // nginx-vod-module yang akan mengkonversi ke HLS/DASH stream
           if (fmt.includes("mov")) return "mov";
           if (fmt.includes("mkv")) return "mkv";
           if (fmt.includes("webm") || ["vp9", "vp8", "av1"].includes(codec?.toLowerCase())) return "webm";
@@ -361,6 +407,15 @@ export const listenUploadQueue = async () => {
 
         const resolutionHeight = parseResolutionHeight(preset.resolution) || 720;
 
+        // Tentukan target protocol dari preset.format untuk disimpan ke DB
+        // Packager SELALU "plain" — FFmpeg output plain file
+        // nginx-vod-module yang mengkonversi HLS, bukan FFmpeg
+        const presetFmt = preset.format?.toLowerCase() || "";
+        const targetProtocol: "hls" | "dash" | "plain" =
+          presetFmt === "hls" ? "hls"
+          : presetFmt === "dash" ? "dash"
+          : "plain";
+
         jobMessages.push({
           videoId: videoData.id,
           storageConfigId: configData.id,
@@ -372,7 +427,8 @@ export const listenUploadQueue = async () => {
           resolutionName: preset.name,
           resolutionHeight: resolutionHeight,
           bitrateKbps: preset.bitrateKbps,
-          packager: "plain",
+          packager: "plain",        // selalu plain — FFmpeg tidak packing HLS/DASH
+          targetProtocol,           // protocol label untuk DB
           slug: slug,
         });
       }
@@ -430,7 +486,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const {
         jobId, videoId, presetId, sourcePath, outputFilename,
         codec, resolutionHeight, resolutionName, packager, slug, totalJobs,
-        storageConfigId, bitrateKbps
+        storageConfigId, bitrateKbps, targetProtocol
     } = jobData;
 
     console.log(`\n[Job ${job.id}] Memulai render | Resolusi: ${resolutionName}`);
@@ -514,7 +570,10 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const newAsset = await createAsset({
       videoId, presetId, jobId, codec,
       format: ext,
-      protocol: "plain",
+      // Gunakan targetProtocol dari job message (dari preset.format):
+      // - HLS preset → protocol "hls" (meski file-nya plain .mp4, nginx-vod yang handle HLS)
+      // - MKV/MOV/WebM preset → protocol "plain"
+      protocol: (targetProtocol || "plain") as "hls" | "dash" | "plain",
       resolution: resolutionName,
       bitrateKbps: bitrateKbps,
       storagePath: minioOutputPath,
@@ -535,16 +594,14 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
 
       try {
         // --------------------------------------------------------
-        // Generate Nginx VOD JSON mapping
-        // Format path: /http/minio:9000/bucket/objectPath
+        // Generate Nginx VOD JSON mapping untuk Auto HLS/DASH stream
+        // nginx-vod-module membaca MP4 files dan generate HLS on-the-fly
         // --------------------------------------------------------
         const allAssets = await getAssetsByVideoId(videoId);
-
-        const getResHeight = (res: string) =>
-          parseInt(res.replace(/\D/g, ""), 10) || 0;
+        const getResHeight = (res: string) => parseInt(res.replace(/\D/g, ""), 10) || 0;
 
         const sortedAssets = allAssets
-          .filter((a) => a.storagePath)
+          .filter((a) => a.storagePath && !a.storagePath.endsWith(".m3u8") && !a.storagePath.endsWith(".mpd"))
           .sort((a, b) => getResHeight(b.resolution) - getResHeight(a.resolution));
 
         if (sortedAssets.length > 0) {
@@ -573,9 +630,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
           await updateVideoStreamUrl(videoId, streamUrl);
           console.log(`[Stream URL] Tersimpan: ${streamUrl}`);
         } else {
-          console.warn(
-            `[Nginx VOD JSON] Tidak ada asset untuk video ${videoId}`,
-          );
+          console.warn(`[Nginx VOD JSON] Tidak ada asset MP4 untuk video ${videoId}`);
         }
       } catch (jsonErr: any) {
         console.error(`[Nginx VOD JSON ERROR]:`, jsonErr.message);

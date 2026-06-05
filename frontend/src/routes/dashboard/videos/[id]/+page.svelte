@@ -33,8 +33,11 @@
 
 	// Helper untuk mendapatkan MIME type video.js
 	function getMimeType(protocol?: string, format?: string) {
-		if (protocol === 'dash') return 'application/dash+xml';
-		if (protocol === 'hls') return 'application/x-mpegURL';
+		// DASH: hanya kalau file-nya memang .mpd
+		if (protocol === 'dash' && format === 'mpd') return 'application/dash+xml';
+		// HLS: hanya kalau file-nya memang .m3u8
+		// HLS preset dengan file .mp4 (nginx-vod) tetap diplay sebagai video/mp4
+		if (protocol === 'hls' && format === 'm3u8') return 'application/x-mpegURL';
 		if (format === 'mov') return 'video/quicktime';
 		if (format === 'webm') return 'video/webm';
 		if (format === 'mkv') return 'video/x-matroska';

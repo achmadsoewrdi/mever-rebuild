@@ -32,9 +32,10 @@ export const authenticate = async (
           .send(errorResponse("Token tidak valid,silahkan login ulang"));
       }
     }
-  } catch (err) {
+  } catch (err: any) {
+    console.error("JWT VERIFY ERROR:", err, "HEADER:", request.headers.authorization);
     reply
       .status(401)
-      .send(errorResponse("Unauthorized: token tidak valid atau expired"));
+      .send(errorResponse(`Unauthorized: ${err?.message || 'unknown'}. Header: ${request.headers.authorization}`));
   }
 };

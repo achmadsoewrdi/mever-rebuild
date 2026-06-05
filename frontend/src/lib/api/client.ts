@@ -15,6 +15,7 @@ export interface ApiResponse<T = unknown> {
 // 1. Buat instance axios
 const apiClient = axios.create({
 	baseURL: PUBLIC_API_BASE_URL,
+	withCredentials: true,
 	headers: {
 		'Content-Type': 'application/json'
 	},
@@ -27,13 +28,21 @@ const apiClient = axios.create({
 // 2. Request Interceptor: Otomatis pasang token
 apiClient.interceptors.request.use((config) => {
 	if (browser) {
-		const token = document.cookie
-			.split('; ')
-			.find((row) => row.startsWith('auth_token='))
-			?.split('=')[1];
+		const rawTokenRow = document.cookie
+			.split(';')
+			.map(row => row.trim())
+			.find((row) => row.startsWith('auth_token='));
+			
+		const rawToken = rawTokenRow ? rawTokenRow.substring('auth_token='.length) : null;
+
+		const token = rawToken ? decodeURIComponent(rawToken) : null;
 
 		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
+			if (config.headers && typeof config.headers.set === 'function') {
+				config.headers.set('Authorization', `Bearer ${token}`);
+			} else {
+				config.headers.Authorization = `Bearer ${token}`;
+			}
 		}
 	}
 	return config;
