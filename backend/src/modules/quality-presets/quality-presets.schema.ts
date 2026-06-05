@@ -10,13 +10,13 @@ export const createQualityPresetSchema = z.object({
     .max(50, "Nama preset maksimal 50 karakter"),
 
   codec: z
-    .enum(["h264", "h265", "vp9", "av1", "vp8"], {
+    .enum(["h264", "h265", "vp9", "av1", "vp8", "prores"], {
       message: "Codec tidak didukung",
     })
     .optional(),
 
   format: z
-    .enum(["hls", "dash", "mp4"], {
+    .enum(["hls", "dash", "mp4", "webm", "mkv", "mov"], {
       message: "Format tidak didukung",
     })
     .optional(),

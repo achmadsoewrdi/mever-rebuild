@@ -13,6 +13,7 @@ import { updateRedisJobId } from "./transcode-jobs.repository";
 import {
   downloadFromMinio,
   uploadToMinio,
+  uploadBufferToMinio,
   createThumbnail,
   transcodeVideo,
 } from "./transcode-jobs.service";
@@ -28,6 +29,8 @@ import {
   updateVideoMetadata,
   incrementDoneJobs,
   createAsset,
+  getAssetsByVideoId,
+  updateVideoStreamUrl,
 } from "./videos.repository";
 
 import {
@@ -179,13 +182,19 @@ export const listenUploadQueue = async () => {
       // Video diunduh SEKALI di sini, lalu path-nya dibagikan ke semua
       // job transcode agar mereka tidak perlu mengunduh ulang.
       // ---------------------------------------------------------------
-      console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO/S3: ${rawPath}`);
-      await downloadFromMinio(
-        decryptedConfig,
-        configData.bucketInput!,
-        rawPath,
-        localSourcePath,
-      );
+      console.log(`[UPLOAD WORKER] Memeriksa file lokal: ${localSourcePath}`);
+      try {
+        await fs.access(localSourcePath);
+        console.log(`[UPLOAD WORKER] File sudah ada secara lokal, melewati unduhan.`);
+      } catch {
+        console.log(`[UPLOAD WORKER] Mengunduh video dari MinIO/S3: ${rawPath}`);
+        await downloadFromMinio(
+          decryptedConfig,
+          configData.bucketInput!,
+          rawPath,
+          localSourcePath,
+        );
+      }
 
       // ---------------------------------------------------------------
       // Analisis metadata video (Resolusi, Durasi, Ukuran, Codec, Format)
@@ -237,6 +246,72 @@ export const listenUploadQueue = async () => {
         );
       }
 
+      // -----------------------------------------------
+      // SMART MATCHING: Filter presets based on source codec & format
+      // -----------------------------------------------
+      //
+      // Aturan matching:
+      // - Preset "hls"  : untuk sumber MP4-family (mov,mp4,ts,mts,dll)
+      //                   BUKAN untuk MKV/WebM yang punya preset sendiri
+      // - Preset "dash" : untuk sumber WebM/Matroska (vp9/av1)
+      // - Preset "mkv"  : hanya untuk sumber Matroska/MKV
+      // - Preset "mov"  : hanya untuk sumber QuickTime/MOV
+      // - Preset "webm" : hanya untuk sumber WebM
+      //
+      let matchingPresets = activePresets.filter(p => {
+        const pCodec = p.codec?.toLowerCase() || "h264";
+        const mCodec = codec.toLowerCase();
+        const codecMatch = mCodec.includes(pCodec) || pCodec.includes(mCodec) || (mCodec === "hevc" && pCodec === "h265");
+        
+        if (!codecMatch) return false;
+
+        const pFormat = p.format?.toLowerCase() || "mp4";
+        const mFormat = formatName.toLowerCase();
+
+        // Tentukan apakah sumber adalah "container khusus" (punya preset sendiri)
+        const isMatroska = mFormat.includes("matroska") || mFormat.includes("mkv");
+        const isWebM     = mFormat.includes("webm");
+        const isSpecializedContainer = isMatroska || isWebM;
+
+        if (pFormat === "hls") {
+          // HLS preset: cocok HANYA untuk sumber MP4-family (bukan matroska/webm)
+          // MP4, MOV, TS, MTS, M4V semuanya cocok ke HLS preset
+          return !isSpecializedContainer;
+        }
+
+        if (pFormat === "dash") {
+          // DASH preset: untuk sumber WebM/Matroska (vp9/av1)
+          return isSpecializedContainer;
+        }
+
+        // Untuk plain container (mkv, mov, webm, mp4): wajib cocok secara format container
+        const formatMatch =
+          mFormat.includes(pFormat) ||
+          pFormat.includes(mFormat) ||
+          (isMatroska && pFormat === "mkv") ||
+          (mFormat.includes("quicktime") && pFormat === "mov");
+
+        return formatMatch;
+      });
+
+      if (matchingPresets.length === 0) {
+        console.warn(`[UPLOAD WORKER] Smart Matching: Tidak ada preset untuk codec=${codec} format=${formatName}. Fallback ke HLS preset.`);
+        // Fallback: HLS preset dengan codec yang cocok (universal fallback)
+        matchingPresets = activePresets.filter(p => {
+          const pFmt = p.format?.toLowerCase() || "";
+          const pCod = p.codec?.toLowerCase() || "h264";
+          const mCod = codec.toLowerCase();
+          return pFmt === "hls" && (mCod.includes(pCod) || pCod.includes(mCod));
+        });
+        // Fallback terakhir: semua preset HLS
+        if (matchingPresets.length === 0) {
+          matchingPresets = activePresets.filter(p => (p.format?.toLowerCase() || "") === "hls");
+        }
+        if (matchingPresets.length === 0) matchingPresets = activePresets;
+      }
+
+
+
       // ---------------------------------------------------------------
       // KONSTRUKSI DISTRIBUTION SUITE BERDASARKAN PRESET
       // ---------------------------------------------------------------
@@ -249,6 +324,7 @@ export const listenUploadQueue = async () => {
         if (fmt.includes("dash")) return "mpd";
         if (fmt.includes("webm")) return "webm";
         if (fmt.includes("mkv")) return "mkv";
+        if (fmt.includes("mov")) return "mov";
         return "mp4";
       };
 
@@ -258,11 +334,18 @@ export const listenUploadQueue = async () => {
         const lower = resString.toLowerCase();
         if (lower === "4k") return 2160;
         if (lower === "2k") return 1440;
+        
+        // Tangani format "1920x1080" (ambil angka setelah 'x')
+        if (lower.includes("x")) {
+          const parts = lower.split("x");
+          return parseInt(parts[1].replace(/\D/g, ""), 10) || 0;
+        }
+        
         return parseInt(lower.replace(/\D/g, ""), 10) || 0;
       };
 
       // 1. Urutkan preset dari resolusi tertinggi ke terendah
-      const sortedPresets = [...activePresets].sort((a, b) => {
+      const sortedPresets = [...matchingPresets].sort((a, b) => {
         return (
           parseResolutionHeight(b.resolution) -
           parseResolutionHeight(a.resolution)
@@ -303,7 +386,18 @@ export const listenUploadQueue = async () => {
       }
 
       for (const preset of finalPresetsToRender) {
-        const outputFilename = `${slug}-${preset.name}.${getExtension(preset.format || "mp4")}`;
+        const getOutputExtension = (format: string, codec: string) => {
+          const fmt = format?.toLowerCase() || "";
+          // Catatan: HLS/DASH preset tetap output file plain (.mp4)
+          // nginx-vod-module yang akan mengkonversi ke HLS/DASH stream
+          if (fmt.includes("mov")) return "mov";
+          if (fmt.includes("mkv")) return "mkv";
+          if (fmt.includes("webm") || ["vp9", "vp8", "av1"].includes(codec?.toLowerCase())) return "webm";
+          return "mp4";
+        };
+
+        const safePresetName = preset.name.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+        const outputFilename = `${slug}-${safePresetName}.${getOutputExtension(preset.format, preset.codec || "h264")}`;
 
         jobsToInsert.push({
           videoId: videoData.id,
@@ -311,14 +405,16 @@ export const listenUploadQueue = async () => {
           outputFilename,
         });
 
-        const packagerFormat = preset.format?.toLowerCase() || "";
-        const packager = packagerFormat.includes("hls")
-          ? "hls"
-          : packagerFormat.includes("dash")
-            ? "dash"
-            : "plain";
-        const resolutionHeight =
-          parseResolutionHeight(preset.resolution) || 720;
+        const resolutionHeight = parseResolutionHeight(preset.resolution) || 720;
+
+        // Tentukan target protocol dari preset.format untuk disimpan ke DB
+        // Packager SELALU "plain" — FFmpeg output plain file
+        // nginx-vod-module yang mengkonversi HLS, bukan FFmpeg
+        const presetFmt = preset.format?.toLowerCase() || "";
+        const targetProtocol: "hls" | "dash" | "plain" =
+          presetFmt === "hls" ? "hls"
+          : presetFmt === "dash" ? "dash"
+          : "plain";
 
         jobMessages.push({
           videoId: videoData.id,
@@ -330,7 +426,9 @@ export const listenUploadQueue = async () => {
           codec: preset.codec || "h264",
           resolutionName: preset.name,
           resolutionHeight: resolutionHeight,
-          packager: packager,
+          bitrateKbps: preset.bitrateKbps,
+          packager: "plain",        // selalu plain — FFmpeg tidak packing HLS/DASH
+          targetProtocol,           // protocol label untuk DB
           slug: slug,
         });
       }
@@ -388,7 +486,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const {
         jobId, videoId, presetId, sourcePath, outputFilename,
         codec, resolutionHeight, resolutionName, packager, slug, totalJobs,
-        storageConfigId
+        storageConfigId, bitrateKbps, targetProtocol
     } = jobData;
 
     console.log(`\n[Job ${job.id}] Memulai render | Resolusi: ${resolutionName}`);
@@ -424,7 +522,8 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
         await job.updateProgress(percent); 
         // Update ke DB untuk frontend
         await updateJobProgress(jobId, percent).catch(() => null);
-      }
+      },
+      bitrateKbps
     );
 
     // FIX DASH PATH
@@ -445,7 +544,8 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
       }
     }
 
-    const minioOutputPath = `videos/${slug}/${resolutionName}/${outputFilename}`;
+    const safeResolutionName = resolutionName.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    const minioOutputPath = `videos/${slug}/${safeResolutionName}/${outputFilename}`;
     await uploadToMinio(decryptedConfig, localOutputPath, configData.bucketOutput!, minioOutputPath);
 
     if (packager === "hls" || packager === "dash") {
@@ -466,11 +566,18 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
 
     let hostProtocol = configData.endpointUrl!.startsWith("http") ? "" : "https://";
     const protocol = getProtocol(codec, packager);
+    const ext = outputFilename.split('.').pop() || "mp4";
     const newAsset = await createAsset({
       videoId, presetId, jobId, codec,
-      format: packager === "dash" ? "mpd" : packager === "hls" ? "m3u8" : "mp4",
-      protocol, resolution: resolutionName,
-      manifestUrl: `${hostProtocol}${configData.endpointUrl}/${configData.bucketOutput}/${minioOutputPath}`,
+      format: ext,
+      // Gunakan targetProtocol dari job message (dari preset.format):
+      // - HLS preset → protocol "hls" (meski file-nya plain .mp4, nginx-vod yang handle HLS)
+      // - MKV/MOV/WebM preset → protocol "plain"
+      protocol: (targetProtocol || "plain") as "hls" | "dash" | "plain",
+      resolution: resolutionName,
+      bitrateKbps: bitrateKbps,
+      storagePath: minioOutputPath,
+      manifestUrl: `http://localhost:8080/raw/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
     await setJobCompleted(jobId, newAsset.id);
@@ -483,7 +590,52 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     console.log(`[Job ${job.id}] Render ${resolutionName} selesai! (${doneCount}/${totalCount})`);
 
     if (doneCount >= totalCount) {
-      console.log(`\n[Job ${job.id}] Semua resolusi selesai untuk video ini!`);
+      console.log(`\n[Job ${job.id}] ✅ Semua resolusi selesai untuk video: ${slug}`);
+
+      try {
+        // --------------------------------------------------------
+        // Generate Nginx VOD JSON mapping untuk Auto HLS/DASH stream
+        // nginx-vod-module membaca MP4 files dan generate HLS on-the-fly
+        // --------------------------------------------------------
+        const allAssets = await getAssetsByVideoId(videoId);
+        const getResHeight = (res: string) => parseInt(res.replace(/\D/g, ""), 10) || 0;
+
+        const sortedAssets = allAssets
+          .filter((a) => a.storagePath && !a.storagePath.endsWith(".m3u8") && !a.storagePath.endsWith(".mpd"))
+          .sort((a, b) => getResHeight(b.resolution) - getResHeight(a.resolution));
+
+        if (sortedAssets.length > 0) {
+          const nginxMinioHost = env.NGINX_MINIO_INTERNAL_HOST;
+
+          const nginxJson = {
+            sequences: sortedAssets.map((asset) => ({
+              id: asset.resolution,
+              clips: [{
+                type: "source",
+                path: `/http/${nginxMinioHost}/${configData.bucketOutput}/${asset.storagePath}`,
+              }],
+            })),
+          };
+
+          const jsonPath = `videos/${slug}/index.json`;
+          await uploadBufferToMinio(
+            decryptedConfig,
+            JSON.stringify(nginxJson, null, 2),
+            configData.bucketOutput!,
+            jsonPath,
+          );
+          console.log(`[Nginx VOD JSON] Berhasil diupload: ${jsonPath}`);
+
+          const streamUrl = `/video/videos/${slug}/index.json/master.m3u8`;
+          await updateVideoStreamUrl(videoId, streamUrl);
+          console.log(`[Stream URL] Tersimpan: ${streamUrl}`);
+        } else {
+          console.warn(`[Nginx VOD JSON] Tidak ada asset MP4 untuk video ${videoId}`);
+        }
+      } catch (jsonErr: any) {
+        console.error(`[Nginx VOD JSON ERROR]:`, jsonErr.message);
+      }
+
       await updateVideoStatus(videoId, "ready");
       await invalidateVideosCache(videoId);
       await fs.unlink(localSourcePath).catch(() => null);

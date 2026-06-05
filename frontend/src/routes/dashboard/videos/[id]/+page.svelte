@@ -13,8 +13,10 @@
 	import VideoPlayer from '$lib/components/video/VideoPlayer.svelte';
 	import VideoDebugPanel from '$lib/components/video/VideoDebugPanel.svelte';
 	import type { DebugStats } from '$lib/components/video/VideoDebugPanel.svelte';
+	import type { VideoStreamInfo } from '$lib/types/video.types';
 
 	let video = $state<Video | null>(null);
+	let streamInfo = $state<VideoStreamInfo | null>(null);
 	let isLoading = $state(true);
 	let showVideoDebug = $state(false);
 	let videoDebugStats = $state<DebugStats>({
@@ -30,9 +32,15 @@
 	const videoId = $derived($page.params.id);
 
 	// Helper untuk mendapatkan MIME type video.js
-	function getMimeType(protocol?: string) {
-		if (protocol === 'dash') return 'application/dash+xml';
-		if (protocol === 'hls') return 'application/x-mpegURL';
+	function getMimeType(protocol?: string, format?: string) {
+		// DASH: hanya kalau file-nya memang .mpd
+		if (protocol === 'dash' && format === 'mpd') return 'application/dash+xml';
+		// HLS: hanya kalau file-nya memang .m3u8
+		// HLS preset dengan file .mp4 (nginx-vod) tetap diplay sebagai video/mp4
+		if (protocol === 'hls' && format === 'm3u8') return 'application/x-mpegURL';
+		if (format === 'mov') return 'video/quicktime';
+		if (format === 'webm') return 'video/webm';
+		if (format === 'mkv') return 'video/x-matroska';
 		return 'video/mp4';
 	}
 
@@ -45,12 +53,21 @@
 		video?.assets?.find((a) => a.id === selectedAssetId) || video?.assets?.[0]
 	);
 	const videoSrc = $derived(mainAsset?.manifestUrl || '');
-	const videoType = $derived(getMimeType(mainAsset?.protocol));
+	const videoType = $derived(getMimeType(mainAsset?.protocol, mainAsset?.format));
 
 	// Helper Label Dropdown
-	function getAssetLabel(asset: VideoAsset) {
-		const height = asset.resolution.split('x')[1] || asset.resolution;
-		const resLabel = height.includes('p') ? height : `${height}p`;
+	function getAssetLabel(asset: VideoAsset | { id: string, protocol: string, resolution: string }) {
+		if (asset.id === 'auto-hls') return 'Auto (Adaptive HLS)';
+		
+		// Ekstrak hanya resolusi (misal: "1080p", "4k") dari string yang mungkin panjang seperti "360p Matroska (MKV)"
+		const match = asset.resolution.match(/\b\d+p\b|\b4k\b/i);
+		let resLabel = match ? match[0].toLowerCase() : asset.resolution;
+		
+		// Jika resolusi dari format '1920x1080'
+		if (!match && asset.resolution.includes('x')) {
+			const height = asset.resolution.split('x')[1];
+			if (height) resLabel = `${height}p`;
+		}
 
 		if (asset.protocol === 'plain') {
 			return `Plain (${resLabel})`;
@@ -61,7 +78,11 @@
 	// Set default asset saat data video masuk
 	$effect(() => {
 		if (video?.assets?.length && !selectedAssetId) {
-			selectedAssetId = video.assets[0].id;
+			if (streamInfo?.hlsUrl) {
+				selectedAssetId = 'auto-hls';
+			} else {
+				selectedAssetId = video.assets[0].id;
+			}
 		}
 	});
 
@@ -69,15 +90,17 @@
 		if (!videoId) return;
 		isLoading = true;
 		try {
-			const [videoRes, assetsRes] = await Promise.all([
+			const [videoRes, assetsRes, streamRes] = await Promise.all([
 				videoApi.getVideoById(videoId),
-				videoApi.getVideoAssets(videoId)
+				videoApi.getVideoAssets(videoId),
+				videoApi.getVideoStream(videoId).catch(() => ({ data: null }))
 			]);
 
 			video = videoRes.data;
 			if (video) {
 				video.assets = assetsRes.data;
 			}
+			streamInfo = streamRes?.data;
 		} catch (error) {
 			console.error('Gagal mengambil detail video:', error);
 		} finally {
@@ -101,7 +124,11 @@
 	};
 
 	const resolutionDisplay = $derived(
-		mainAsset?.resolution ? resolutionMap[mainAsset.resolution] || mainAsset.resolution : 'N/A'
+		mainAsset?.resolution ? (() => {
+			if (resolutionMap[mainAsset.resolution]) return resolutionMap[mainAsset.resolution];
+			const match = mainAsset.resolution.match(/\b\d+p\b|\b4k\b/i);
+			return match ? match[0].toLowerCase() : mainAsset.resolution;
+		})() : 'N/A'
 	);
 
 	function formatDurationHuman(seconds: number): string {
@@ -170,25 +197,33 @@
 			class="mx-auto w-full max-w-7xl overflow-hidden rounded-3xl border border-border-base bg-bg-secondary shadow-xl ring-1 ring-black/5"
 		>
 			<!-- VIDEO AREA -->
-			<div class="bg-black relative">
+			<div class="relative bg-black">
 				{#if showVideoDebug}
 					<div class="animate-in fade-in absolute top-3 left-3 z-20 duration-200">
 						<VideoDebugPanel stats={videoDebugStats} onClose={() => (showVideoDebug = false)} />
 					</div>
 				{/if}
-				{#if videoSrc}
+				{#if selectedAssetId === 'auto-hls' && streamInfo?.hlsUrl}
+					<VideoPlayer
+						src={streamInfo.hlsUrl}
+						videoType="application/x-mpegURL"
+						poster={streamInfo.thumbnailUrl || video?.thumbnailUrl}
+						bind:showDebug={showVideoDebug}
+						bind:debugStats={videoDebugStats}
+					/>
+				{:else if videoSrc}
 					{#key selectedAssetId}
-						<VideoPlayer 
-							src={videoSrc} 
-							{videoType} 
-							poster={video.thumbnailUrl} 
-							bind:showDebug={showVideoDebug} 
-							bind:debugStats={videoDebugStats} 
+						<VideoPlayer
+							src={videoSrc}
+							{videoType}
+							poster={video?.thumbnailUrl}
+							bind:showDebug={showVideoDebug}
+							bind:debugStats={videoDebugStats}
 						/>
 					{/key}
 				{:else}
 					<div class="flex aspect-[2.1/1] w-full items-center justify-center bg-slate-950">
-						<p class="text-sm text-slate-500">Tidak ada stream tersedia untuk protokol ini.</p>
+						<p class="text-sm text-slate-500">Video belum diproses atau tidak tersedia.</p>
 					</div>
 				{/if}
 			</div>
@@ -233,7 +268,21 @@
 									<div class="p-4 text-center text-xs text-text-muted">No assets available</div>
 								{:else}
 									<div class="flex flex-col gap-0.5">
-										{#each video.assets as asset (asset.id)}
+										{#if streamInfo?.hlsUrl}
+											<button
+												class={`flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedAssetId === 'auto-hls' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10' : ''}`}
+												onclick={() => {
+													selectedAssetId = 'auto-hls';
+													isDropdownOpen = false;
+												}}
+											>
+												<span class="font-medium">Auto (Adaptive HLS)</span>
+												{#if selectedAssetId === 'auto-hls'}
+													<Check size={16} />
+												{/if}
+											</button>
+										{/if}
+										{#each video.assets || [] as asset (asset.id)}
 											<button
 												onclick={() => {
 													selectedAssetId = asset.id;

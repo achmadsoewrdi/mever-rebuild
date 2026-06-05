@@ -104,7 +104,9 @@ export const requestUpload = async (
     Key: objectName,
   });
 
-  const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  const presignedUrl = await getSignedUrl(s3Client, command, {
+    expiresIn: 3600,
+  });
 
   return {
     video: newVideo,
@@ -113,6 +115,12 @@ export const requestUpload = async (
 };
 
 export const confirmUpload = async (videoId: string): Promise<void> => {
+  const video = await findVideoById(videoId);
+  if (!video) throw new Error("VIDEO_NOT_FOUND");
+  if (video.status !== "uploading") {
+    throw new Error("VIDEO_ALREADY_CONFIRMED");
+  }
+
   await updateVideoStatus(videoId, "queued");
 
   // Hapus cache list videos dan cache detail video
@@ -121,4 +129,36 @@ export const confirmUpload = async (videoId: string): Promise<void> => {
 
   // Push ke antrean transcoder (berisi videoId)
   await redisCache.rpush("queue:upload", JSON.stringify({ videoId }));
+};
+
+export const getVideoStream = async (id: string) => {
+  const cacheKey = `cache:video:stream:${id}`;
+  const cached = await redisCache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const video = await findVideoById(id);
+  if (!video) throw new Error("VIDEO_NOT_FOUND");
+
+  if (video.status !== "ready") {
+    throw new Error("VIDEO_NOT_READY");
+  }
+
+  if (!video.streamUrl) {
+    throw new Error("VIDEO_STREAM_NOT_AVAILABLE");
+  }
+
+  const nginxBase = process.env.NGINX_VOD_URL || "http://localhost:8080";
+  const result = {
+    videoId: video.id,
+    title: video.title,
+    thumbnailUrl: video.thumbnailUrl,
+    hlsUrl: `${nginxBase}${video.streamUrl}`,
+    dashUrl: `${nginxBase}${video.streamUrl.replace("master.m3u8", "manifest.mpd")}`,
+    status: video.status,
+    durationSeconds: video.durationSeconds,
+  };
+
+  // cache 10 menit
+  await redisCache.set(cacheKey, JSON.stringify(result), "EX", 600);
+  return result;
 };

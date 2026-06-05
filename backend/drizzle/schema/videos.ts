@@ -15,7 +15,9 @@ import { videoStatusEnum, codecTypeEnum, protocolTypeEnum } from "./enums";
 export const videos = pgTable("videos", {
   id: uuid("id").primaryKey().defaultRandom(),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
-  storageConfigId: uuid("storage_config_id").references(() => storageConfigs.id),
+  storageConfigId: uuid("storage_config_id").references(
+    () => storageConfigs.id,
+  ),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
@@ -25,6 +27,7 @@ export const videos = pgTable("videos", {
   targetCodec: codecTypeEnum("target_codec"),
   targetProtocol: protocolTypeEnum("target_protocol"),
   thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
+  streamUrl: varchar("stream_url", { length: 500 }),
   durationSeconds: integer("duration_seconds"),
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
   totalJobs: integer("total_jobs").default(0),

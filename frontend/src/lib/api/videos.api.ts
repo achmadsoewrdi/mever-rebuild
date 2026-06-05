@@ -4,7 +4,8 @@ import type {
 	VideoFilters,
 	VideoAsset,
 	RequestUploadDto,
-	UploadResponse
+	UploadResponse,
+	VideoStreamInfo
 } from '$lib/types/video.types';
 import type { ApiResponse, PaginatedResponse } from '$lib/types/api.types';
 import axios from 'axios';
@@ -74,5 +75,13 @@ export const videoApi = {
 				}
 			}
 		});
+	},
+
+	/**
+	 * Mengambil URL Stream (HLS/DASH) dari Nginx VOD
+	 * @param videoId ID video terkait.
+	 */
+	getVideoStream: async (videoId: string): Promise<ApiResponse<VideoStreamInfo>> => {
+		return apiClient.get(`/videos/${videoId}/stream`);
 	}
 };

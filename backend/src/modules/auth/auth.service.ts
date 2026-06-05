@@ -146,7 +146,7 @@ export const verifyMFALogin = async (userId: string, token: string) => {
   }
 
   // lockout key
-  const lockoutKey = `mfa:LockoutKay: ${userId}`;
+  const lockoutKey = `mfa:lockout:${userId}`;
   const maxAttempts = 3;
   const lockDuration = 600; //10 menit dalam hitungan detik
 

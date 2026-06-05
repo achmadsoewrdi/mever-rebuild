@@ -46,7 +46,12 @@ const envSchema = z.object({
   DEFAULT_PACKAGER: z.enum(["hls", "dash", "plain"]).default("hls"),
 
   // Security
-  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY harus minimal 32 karakter"),
+  ENCRYPTION_KEY: z
+    .string()
+    .min(32, "ENCRYPTION_KEY harus minimal 32 karakter"),
+
+  // Nginx VOD Integration
+  NGINX_MINIO_INTERNAL_HOST: z.string().default("minio:9000"),
 });
 
 export const env = envSchema.parse(process.env);

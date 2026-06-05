@@ -87,3 +87,23 @@ export const createAsset = async (data: CreateAssetData) => {
   const result = await db.insert(videoAssets).values(data).returning();
   return result[0];
 };
+
+// ambil semua asset milik satu video - generate nginx vod json
+export const getAssetsByVideoId = async (videoId: string) => {
+  const result = await db
+    .select()
+    .from(videoAssets)
+    .where(eq(videoAssets.videoId, videoId));
+  return result;
+};
+
+// update streamurl setelah index.json berhasil dibuat
+export const updateVideoStreamUrl = async (
+  id: string,
+  streamUrl: string,
+): Promise<void> => {
+  await db
+    .update(videos)
+    .set({ streamUrl, updatedAt: new Date() })
+    .where(eq(videos.id, id));
+};

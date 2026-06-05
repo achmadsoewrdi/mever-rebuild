@@ -9,7 +9,7 @@
 	import { toast } from 'svelte-sonner';
 	import { videoApi } from '$lib/api/videos.api';
 	import VideoPlayer from '$lib/components/video/VideoPlayer.svelte';
-	import type { VideoAsset } from '$lib/types/video.types';
+	import type { VideoAsset, VideoStreamInfo } from '$lib/types/video.types';
 	import type { ApiResponse } from '$lib/types/api.types';
 
 	interface VideoData {
@@ -31,19 +31,22 @@
 
 	let videoId = $derived($page.params.id);
 	let video = $state<VideoData | null>(null);
+	let streamInfo = $state<VideoStreamInfo | null>(null);
 	let loading = $state(true);
 
 	async function loadVideoDetail() {
 		loading = true;
 		try {
-			const [res, assetsRes] = await Promise.all([
+			const [res, assetsRes, streamRes] = await Promise.all([
 				getVideo(videoId!) as unknown as Promise<ApiResponse<VideoData>>,
-				videoApi.getVideoAssets(videoId!)
+				videoApi.getVideoAssets(videoId!),
+				videoApi.getVideoStream(videoId!).catch(() => ({ data: null }))
 			]);
 			if (res && res.data) {
 				video = res.data;
 				video!.assets = assetsRes.data || [];
 			}
+			streamInfo = streamRes?.data;
 		} catch (err: unknown) {
 			console.error(err);
 			toast.error('Gagal mengambil detail video');
@@ -81,7 +84,11 @@
 
 	$effect(() => {
 		if (video?.assets?.length && !selectedAssetId) {
-			selectedAssetId = video.assets[0].id;
+			if (streamInfo?.hlsUrl) {
+				selectedAssetId = 'auto-hls';
+			} else {
+				selectedAssetId = video.assets[0].id;
+			}
 		}
 	});
 
@@ -92,14 +99,18 @@
 			? `Plain (${resLabel})`
 			: `${asset.protocol.toUpperCase()} (${resLabel})`;
 	}
+
+	function getMimeType(protocol?: string, format?: string) {
+		if (protocol === 'dash' && format === 'mpd') return 'application/dash+xml';
+		if (protocol === 'hls' && format === 'm3u8') return 'application/x-mpegURL';
+		if (format === 'mov') return 'video/quicktime';
+		if (format === 'webm') return 'video/webm';
+		if (format === 'mkv') return 'video/x-matroska';
+		return 'video/mp4';
+	}
+
 	const videoSrc = $derived(mainAsset?.manifestUrl || '');
-	const videoType = $derived(
-		mainAsset?.protocol === 'dash'
-			? 'application/dash+xml'
-			: mainAsset?.protocol === 'hls'
-				? 'application/x-mpegURL'
-				: 'video/mp4'
-	);
+	const videoType = $derived(getMimeType(mainAsset?.protocol, mainAsset?.format));
 </script>
 
 <div class="space-y-6 px-6 py-6">
@@ -145,7 +156,9 @@
 				</div>
 
 				<div class="overflow-hidden rounded-lg border border-border-base bg-black shadow-sm">
-					{#if videoSrc}
+					{#if selectedAssetId === 'auto-hls' && streamInfo?.hlsUrl}
+						<VideoPlayer src={streamInfo.hlsUrl} videoType="application/x-mpegURL" poster={video.thumbnailUrl} />
+					{:else if videoSrc}
 						{#key selectedAssetId}
 							<VideoPlayer src={videoSrc} {videoType} poster={video.thumbnailUrl} />
 						{/key}
@@ -239,6 +252,16 @@
 						<p class="text-sm text-text-sub">Belum ada aset resolusi yang tersedia.</p>
 					{:else}
 						<div class="flex flex-col gap-2">
+							{#if streamInfo?.hlsUrl}
+								<button
+									onclick={() => selectedAssetId = 'auto-hls'}
+									class="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors {selectedAssetId === 'auto-hls' 
+										? 'border-primary bg-primary/5 text-primary' 
+										: 'border-border-base hover:bg-slate-50 dark:hover:bg-bg-surface text-text-main'}"
+								>
+									<span>Auto (Adaptive HLS)</span>
+								</button>
+							{/if}
 							{#each video.assets as asset (asset.id)}
 								<button
 									onclick={() => selectedAssetId = asset.id}

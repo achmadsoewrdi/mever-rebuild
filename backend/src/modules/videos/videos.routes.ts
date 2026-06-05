@@ -4,13 +4,16 @@ import {
   handleGetVideoById,
   handleRequestUpload,
   handleConfirmUpload,
+  handleGetVideostream,
 } from "./videos.controller";
 import { authenticate } from "../../middlewares/authenticate";
 
 // ============================================
 //  ROUTES: Videos
 // ============================================
-export const registerVideosRoutes = async (app: FastifyInstance): Promise<void> => {
+export const registerVideosRoutes = async (
+  app: FastifyInstance,
+): Promise<void> => {
   // GET /videos — daftar video (butuh login)
   app.get("/videos", { preHandler: authenticate }, handleListVideos);
 
@@ -18,8 +21,23 @@ export const registerVideosRoutes = async (app: FastifyInstance): Promise<void> 
   app.get("/videos/:id", { preHandler: authenticate }, handleGetVideoById);
 
   // POST /videos/request-upload — minta presigned URL (butuh login)
-  app.post("/videos/request-upload", { preHandler: authenticate }, handleRequestUpload);
+  app.post(
+    "/videos/request-upload",
+    { preHandler: authenticate },
+    handleRequestUpload,
+  );
 
   // POST /videos/:id/confirm — konfirmasi upload selesai (butuh login)
-  app.post("/videos/:id/confirm", { preHandler: authenticate }, handleConfirmUpload);
+  app.post(
+    "/videos/:id/confirm",
+    { preHandler: authenticate },
+    handleConfirmUpload,
+  );
+
+  // GET /videos/:id/stream - ambil URL Nginx VOD
+  app.get(
+    "/videos/:id/stream",
+    { preHandler: authenticate },
+    handleGetVideostream,
+  );
 };

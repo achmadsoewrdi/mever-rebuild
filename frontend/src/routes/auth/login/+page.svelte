@@ -86,12 +86,18 @@
 
 	function completeLogin(token: string, rememberMe: boolean) {
 		const maxAge = rememberMe ? 2592000 : 86400;
-		document.cookie = `auth_token=${token}; path=/; max-age=${maxAge}`;
+		document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
 		toast.success('Login Berhasil');
 		
 		// Decode token untuk mengecek role
 		try {
-			const base64Payload = token.split('.')[1];
+			let base64Payload = token.split('.')[1];
+			// Convert Base64Url to Base64
+			base64Payload = base64Payload.replace(/-/g, '+').replace(/_/g, '/');
+			// Add padding if necessary
+			while (base64Payload.length % 4) {
+				base64Payload += '=';
+			}
 			const payload = JSON.parse(atob(base64Payload));
 			
 			if (payload.role === 'admin') {
