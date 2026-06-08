@@ -29,6 +29,7 @@
     "fastify": "^5.8.5",
     "ioredis": "^5.10.1",
     "minio": "^8.0.7",
+    "node-mailjet": "^6.0.11",
     "otplib": "^13.4.0",
     "pg": "^8.20.0",
     "postgres": "^3.4.9",

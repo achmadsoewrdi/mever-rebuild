@@ -22,4 +22,5 @@ export const users = pgTable("users", {
   mfaVerifiedAt: timestamp("mfa_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  department: varchar("department", { length: 255 }),
 });

@@ -18,6 +18,10 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default("7d"),
   ENCRYPTION_KEY: z.string().min(32),
+  MAILJET_API_KEY: z.string().min(1),
+  MAILJET_SECRET_KEY: z.string().min(1),
+  MAILJET_SENDER_EMAIL: z.string().email(),
+  MAILJET_SENDER_NAME: z.string().default("MEVER Admin"),
 });
 
 export const env = schema.parse(process.env);
