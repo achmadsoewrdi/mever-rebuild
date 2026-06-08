@@ -577,7 +577,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
       resolution: resolutionName,
       bitrateKbps: bitrateKbps,
       storagePath: minioOutputPath,
-      manifestUrl: `http://localhost:8080/raw/${configData.bucketOutput}/${minioOutputPath}`,
+      manifestUrl: `http://localhost:8080/raw/${env.NGINX_MINIO_INTERNAL_HOST}/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
     await setJobCompleted(jobId, newAsset.id);
@@ -626,7 +626,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
           );
           console.log(`[Nginx VOD JSON] Berhasil diupload: ${jsonPath}`);
 
-          const streamUrl = `/video/videos/${slug}/index.json/master.m3u8`;
+          const streamUrl = `/video/${nginxMinioHost}/${configData.bucketOutput}/videos/${slug}/index.json/master.m3u8`;
           await updateVideoStreamUrl(videoId, streamUrl);
           console.log(`[Stream URL] Tersimpan: ${streamUrl}`);
         } else {
