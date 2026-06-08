@@ -500,6 +500,18 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
     const configData = await findStorageConfigById(storageConfigId);
     const decryptedConfig = { ...configData, secretKey: decrypt(configData.secretKeyEnc!) };
 
+    // Ambil host dari konfigurasi storage, buang protocol
+    let nginxMinioHost = configData.endpointUrl!.replace('http://', '').replace('https://', '');
+    
+    // HACK LOKAL: Jika Transcoder jalan di Windows (pakai 127.0.0.1), Nginx (di Docker) butuh nama container.
+    if (nginxMinioHost.includes('127.0.0.1') || nginxMinioHost.includes('localhost')) {
+      if (nginxMinioHost.includes('9002')) {
+        nginxMinioHost = 'minio2:9000';
+      } else {
+        nginxMinioHost = 'minio:9000';
+      }
+    }
+
     try {
       await fs.access(localSourcePath);
     } catch {
@@ -577,7 +589,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
       resolution: resolutionName,
       bitrateKbps: bitrateKbps,
       storagePath: minioOutputPath,
-      manifestUrl: `http://localhost:8080/raw/${env.NGINX_MINIO_INTERNAL_HOST}/${configData.bucketOutput}/${minioOutputPath}`,
+      manifestUrl: `http://localhost:8080/raw/${nginxMinioHost}/${configData.bucketOutput}/${minioOutputPath}`,
     });
 
     await setJobCompleted(jobId, newAsset.id);
@@ -605,7 +617,7 @@ export const startTranscodeWorker = (concurrencyCount: number) => {
           .sort((a, b) => getResHeight(b.resolution) - getResHeight(a.resolution));
 
         if (sortedAssets.length > 0) {
-          const nginxMinioHost = env.NGINX_MINIO_INTERNAL_HOST;
+
 
           const nginxJson = {
             sequences: sortedAssets.map((asset) => ({
