@@ -36,6 +36,8 @@ export const getDynamicS3Client = (config: any) => {
   });
 };
 
+import fs from "fs";
+
 // download from minio
 export const downloadFromMinio = async (
   config: any,
@@ -45,7 +47,14 @@ export const downloadFromMinio = async (
 ): Promise<void> => {
   const client = getDynamicS3Client(config);
   try {
-    await client.fGetObject(bucket, objectName, LocalPath);
+    const dataStream = await client.getObject(bucket, objectName);
+    const writeStream = fs.createWriteStream(LocalPath);
+    await new Promise((resolve, reject) => {
+      dataStream.pipe(writeStream);
+      dataStream.on("error", reject);
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
     console.log(`[MINIO DOWNLOAD] sukses: ${objectName}`);
   } catch (err: any) {
     console.error(
@@ -70,6 +79,30 @@ export const uploadToMinio = async (
   } catch (err: any) {
     console.error(
       `[MINIO UPLOAD ERROR] Gagal mengunggah ${localPath}:`,
+      err.message,
+    );
+    throw err;
+  }
+};
+
+// Upload dari buffer/string — untuk upload JSON ke MinIO tanpa file fisik di disk
+export const uploadBufferToMinio = async (
+  config: any,
+  content: string,
+  bucket: string,
+  objectName: string,
+  contentType: string = "application/json",
+): Promise<void> => {
+  const client = getDynamicS3Client(config);
+  const buffer = Buffer.from(content, "utf-8");
+  try {
+    await client.putObject(bucket, objectName, buffer, buffer.length, {
+      "Content-Type": contentType,
+    });
+    console.log(`[MINIO UPLOAD BUFFER] sukses: ${objectName}`);
+  } catch (err: any) {
+    console.error(
+      `[MINIO UPLOAD BUFFER ERROR] Gagal mengunggah ${objectName}:`,
       err.message,
     );
     throw err;
@@ -134,10 +167,11 @@ export const transcodeVideo = async (
   packager: "hls" | "dash" | "plain",
   segmentPrefix: string,
   onProgress: (percent: number) => void,
+  bitrateKbps?: number,
 ): Promise<void> => {
   const bestCodec = await getBestEncoder(codec as any);
   console.log(
-    `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec}`,
+    `[FFMPEG] Menggunakan encoder: ${bestCodec} untuk codec: ${codec} ${bitrateKbps ? `(Target Bitrate: ${bitrateKbps} kbps)` : ""}`,
   );
   const outputDir = path.dirname(outputPath);
 
@@ -164,14 +198,25 @@ export const transcodeVideo = async (
 
       // Preset per encoder
       if (effectiveCodec.includes("nvenc")) {
-        command = command.addOption("-preset", "fast").addOption("-rc", "vbr").addOption("-cq", "23");
+        command = command.addOption("-preset", "fast");
+        if (!bitrateKbps) command = command.addOption("-rc", "vbr").addOption("-cq", "23");
       } else if (effectiveCodec.includes("qsv")) {
-        command = command.addOption("-preset", "veryfast").addOption("-global_quality", "23");
+        command = command.addOption("-preset", "veryfast");
+        if (!bitrateKbps) command = command.addOption("-global_quality", "23");
       } else if (effectiveCodec.includes("amf")) {
         command = command.addOption("-quality", "balanced");
       } else {
         // CPU encoder (libx264/libx265)
-        command = command.addOption("-preset", "veryfast").addOption("-crf", "23");
+        command = command.addOption("-preset", "veryfast");
+        if (!bitrateKbps) command = command.addOption("-crf", "23");
+      }
+
+      // Penerapan Bitrate jika ditentukan dari preset database
+      if (bitrateKbps && bitrateKbps > 0) {
+        command = command
+          .addOption("-b:v", `${bitrateKbps}k`)
+          .addOption("-maxrate", `${bitrateKbps}k`)
+          .addOption("-bufsize", `${bitrateKbps * 2}k`);
       }
 
       // Paksa 8-bit yuv420p agar dapat diputar di semua browser
@@ -200,12 +245,13 @@ export const transcodeVideo = async (
           .addOption("-adaptation_sets", "id=0,streams=v id=1,streams=a")
           .addOption("-f", "dash");
       } else {
-        // plain: pilih format kontainer berdasarkan codec
-        // VP9/AV1 → WebM | H.265 → MKV | H.264 → MP4
-        if (effectiveCodec.includes("vp9") || effectiveCodec.includes("vp8") || effectiveCodec.includes("av1")) {
+        // plain: pilih format kontainer berdasarkan codec ATAU ekstensi file output
+        if (outputPath.endsWith(".webm")) {
           command = command.addOption("-f", "webm");
-        } else if (effectiveCodec.includes("x265") || effectiveCodec.includes("hevc")) {
+        } else if (outputPath.endsWith(".mkv")) {
           command = command.addOption("-f", "matroska"); // MKV
+        } else if (outputPath.endsWith(".mov")) {
+          command = command.addOption("-f", "mov").addOption("-movflags", "+faststart");
         } else {
           command = command.addOption("-movflags", "+faststart").addOption("-f", "mp4");
         }

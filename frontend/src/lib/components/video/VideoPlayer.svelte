@@ -147,6 +147,10 @@
 		}
 	}
 
+	const isUnsupportedFormat = $derived(
+		videoType === 'video/quicktime' || videoType === 'video/x-matroska'
+	);
+
 	$effect(() => {
 		if (!videoElement) return;
 		const el = videoElement;
@@ -155,6 +159,14 @@
 
 		untrack(() => {
 			errorMessage = null;
+
+			if (isUnsupportedFormat) {
+				if (player) {
+					player.dispose();
+					player = undefined;
+				}
+				return;
+			}
 
 			if (!player) {
 				player = videojs(el, {
@@ -280,7 +292,23 @@
 		if (isPlaying) showControls = false;
 	}}
 >
-	{#if errorMessage}
+	{#if isUnsupportedFormat || (errorMessage && errorMessage.includes('CODE:4'))}
+		<div class="flex aspect-video w-full flex-col items-center justify-center bg-slate-950 p-6">
+			<svg xmlns="http://www.w3.org/2000/svg" class="mb-4 h-16 w-16 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+				<path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+				<path d="m9 15 2 2 4-4"/>
+			</svg>
+			<h3 class="text-lg font-bold text-slate-200">Format Tidak Didukung Browser</h3>
+			<p class="mt-2 max-w-md text-center text-sm text-slate-400">
+				Browser web tidak memiliki kemampuan untuk memutar format atau codec file ini.
+			</p>
+			<p class="mt-2 max-w-md text-center text-sm text-slate-400">
+				Silakan tekan tombol <strong>Copy Link</strong> di bawah video dan putar melalui aplikasi desktop seperti <strong>VLC Media Player</strong>.
+			</p>
+		</div>
+	{:else}
+		{#if errorMessage}
 		<div class="flex aspect-video w-full items-center justify-center bg-slate-950 p-6">
 			<div class="flex flex-col items-center gap-3 text-center">
 				<svg
@@ -478,7 +506,7 @@
 			<!-- Fullscreen -->
 			<button
 				onclick={toggleFullscreen}
-				class="flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition hover:bg-white/10 hover:text-white"
+				class="flex h-9 min-w-[36px] items-center justify-center rounded-lg text-white/80 transition hover:bg-white/10 hover:text-white"
 			>
 				{#if isFullscreen}
 					<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -501,6 +529,7 @@
 	{#if showRateMenu}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class="fixed inset-0 z-10" onclick={() => (showRateMenu = false)}></div>
+	{/if}
 	{/if}
 </div>
 
