@@ -1,7 +1,6 @@
 import { eq, and, ilike, sql } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
-import { users } from "../../../drizzle/schema";
-import { videos, videoAssets, transcodeJobs } from "../../../drizzle/schema";
+import { users, videos, videoAssets, transcodeJobs, accountRequests } from "../../../drizzle/schema";
 
 /**
  * =====================
@@ -142,6 +141,39 @@ export const hardDeleteVideo = async (id: string) => {
   const result = await db
     .delete(videos)
     .where(eq(videos.id, id))
+    .returning();
+  return result[0];
+};
+
+/**
+ * =====================
+ * Account Requests
+ * =====================
+ */
+
+export const getAccountRequests = async (status?: string) => {
+  const whereClause = status ? eq(accountRequests.status, status as any) : undefined;
+  const result = await db
+    .select()
+    .from(accountRequests)
+    .where(whereClause)
+    .orderBy(sql`${accountRequests.createdAt} DESC`);
+  return result;
+};
+
+export const getAccountRequestById = async (id: string) => {
+  const result = await db
+    .select()
+    .from(accountRequests)
+    .where(eq(accountRequests.id, id));
+  return result[0];
+};
+
+export const updateAccountRequestStatus = async (id: string, status: "approved" | "rejected") => {
+  const result = await db
+    .update(accountRequests)
+    .set({ status })
+    .where(eq(accountRequests.id, id))
     .returning();
   return result[0];
 };

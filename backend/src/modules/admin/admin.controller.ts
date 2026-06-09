@@ -9,6 +9,9 @@ import {
   getVideoDetail,
   editVideo,
   removeVideo,
+  fetchAccountRequests,
+  approveAccountRequest,
+  rejectAccountRequest
 } from "./admin.service";
 import { updateRoleSchema, updateStatusSchema, createUserSchema } from "./admin.types";
 import { SuccessResponse, errorResponse } from "../../utils/response";
@@ -214,6 +217,54 @@ export const handleDeleteVideo = async (request: FastifyRequest, reply: FastifyR
     if (err.message === "Video Not Found") {
       return reply.status(404).send(errorResponse("Video tidak ditemukan"));
     }
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: GET /admin/account-requests
+// ============================================
+export const handleGetAccountRequests = async (request: FastifyRequest, reply: FastifyReply) => {
+  const query = request.query as { status?: string };
+  try {
+    const result = await fetchAccountRequests(query);
+    reply.send(SuccessResponse(result, "Berhasil mengambil data request account"));
+  } catch (err: any) {
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: POST /admin/account-requests/:id/approve
+// ============================================
+export const handleApproveAccountRequest = async (request: FastifyRequest, reply: FastifyReply) => {
+  const { id } = request.params as { id: string };
+  try {
+    const newUser = await approveAccountRequest(id);
+    reply.send(SuccessResponse(newUser, "Berhasil menyetujui request dan membuat akun"));
+  } catch (err: any) {
+    if (err.message === "Request Not Found") return reply.status(404).send(errorResponse("Request tidak ditemukan"));
+    if (err.message === "Request is not pending") return reply.status(400).send(errorResponse("Request ini tidak dalam status pending"));
+    if (err.message === "Email already registered") return reply.status(409).send(errorResponse("Email pada request ini sudah terdaftar sebagai akun"));
+    
+    console.error("Approve request error:", err);
+    reply.status(500).send(errorResponse("Internal Server Error"));
+  }
+};
+
+// ============================================
+//  HANDLER: POST /admin/account-requests/:id/reject
+// ============================================
+export const handleRejectAccountRequest = async (request: FastifyRequest, reply: FastifyReply) => {
+  const { id } = request.params as { id: string };
+  try {
+    const rejectedRequest = await rejectAccountRequest(id);
+    reply.send(SuccessResponse(rejectedRequest, "Berhasil menolak request account"));
+  } catch (err: any) {
+    if (err.message === "Request Not Found") return reply.status(404).send(errorResponse("Request tidak ditemukan"));
+    if (err.message === "Request is not pending") return reply.status(400).send(errorResponse("Request ini tidak dalam status pending"));
+    
+    console.error("Reject request error:", err);
     reply.status(500).send(errorResponse("Internal Server Error"));
   }
 };

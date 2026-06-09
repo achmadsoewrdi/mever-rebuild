@@ -6,8 +6,9 @@ import {
   setupMFA,
   verifyMFALogin,
   verifyAndEnableMFA,
+  requestAccount
 } from "./auth.service";
-import { registerSchema, loginSchema } from "./auth.schema";
+import { registerSchema, loginSchema, requestAccountSchema} from "./auth.schema";
 import { SuccessResponse, errorResponse } from "../../utils/response";
 
 // ============================================
@@ -171,3 +172,36 @@ export const handleMfaLoginVerify = async (
     reply.status(401).send(errorResponse(err.message));
   }
 };
+
+
+// ============================================
+//  HANDLER: POST /auth/request-account
+// ============================================
+export const handleRequestAccount = async(
+  request: FastifyRequest,
+  reply: FastifyReply,
+):Promise<void> => {
+  const parsed = requestAccountSchema.safeParse(request.body);
+  if(!parsed.success){
+    return reply.status(400).send(errorResponse("Input Tidak Valid", parsed.error.issues));
+  }
+  
+  try{
+    const newRequest = await requestAccount(parsed.data);
+    reply.status(201).send(SuccessResponse(newRequest, "Permintaan Akun berhasil Dibuat, menunggu persetujuan admin"));
+  } catch (err: any){
+
+    //Tangani Error Khusus dari Service
+    if (err.message === "EMAIL_ALREADY_EXIST") {
+      return reply.status(409).send(errorResponse("Email ini sudah terdaftar sebagai pengguna aktif."));
+    }
+    
+    if (err.message === "REQUEST_ALREADY_PENDING") {
+      return reply.status(409).send(errorResponse("Email ini sudah mengirimkan permintaan dan sedang menunggu persetujuan."));
+    }
+
+    //Tangani Error Umum
+    console.error("❌ Request Account error:", err);
+    reply.status(500).send(errorResponse("Terjadi kesalahan server saat memproses permintaan"));
+  }
+}

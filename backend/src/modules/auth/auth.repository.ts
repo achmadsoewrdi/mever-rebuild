@@ -1,6 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../loaders/postgres";
 import { users } from "../../../drizzle/schema";
+import { accountRequests } from "../../../drizzle/schema/account-requests";
+import { RequestsAccountInput } from "./auth.schema";
 
 type User = typeof users.$inferSelect;
 type NewUser = typeof users.$inferInsert;
@@ -56,4 +58,42 @@ export const enableMfa = async (id: string): Promise<void> => {
     .update(users)
     .set({ mfaEnabled: true, mfaVerifiedAt: new Date() })
     .where(eq(users.id, id));
+};
+
+/**
+ * CHECK EMAIL REQUEST ACCOUNT
+ */
+
+export const checkExistingEmail = async (email:string):Promise<boolean> => {
+  const [existingUser] = await db.select({id: users.id}).from(users).where(eq(users.email, email)).limit(1);
+
+  return !!existingUser;
+}
+
+export const checkExistingPendingRequest = async (email: string): Promise<boolean> => {
+  const [pendingRequest] = await db
+    .select({ id: accountRequests.id })
+    .from(accountRequests)
+    .where(
+      and(
+        eq(accountRequests.email, email),
+        eq(accountRequests.status, "pending")
+      )
+    )
+    .limit(1);
+  return !!pendingRequest;
+};
+
+
+export const createAccountRequest = async (data: RequestsAccountInput) => {
+  const [newRequest] = await db
+    .insert(accountRequests)
+    .values({
+      name: data.name,
+      email: data.email,
+      department: data.department,
+      status: "pending", 
+    })
+    .returning(); 
+  return newRequest;
 };

@@ -5,11 +5,15 @@ import {
   findUserById,
   updateMfaSecret,
   enableMfa,
+  checkExistingEmail,
+  checkExistingPendingRequest,
+  createAccountRequest
 } from "./auth.repository";
 import { hashPassword, comparePassword } from "../../utils/hash";
 import { redisCache } from "../../loaders";
 import { RegisterDto, LoginDto, JwtPayload, LoginResult } from "./auth.types";
 import { generateSecret, verify, generateURI } from "otplib";
+import { RequestsAccountInput } from "./auth.schema";
 
 // ============================================
 //  SERVICE: Auth
@@ -203,3 +207,19 @@ export const verifyMFALogin = async (userId: string, token: string) => {
     );
   }
 };
+
+// request account
+export const requestAccount = async(payload:RequestsAccountInput)=>{
+  const isEmailTaken = await checkExistingEmail(payload.email);
+  if(isEmailTaken){
+    throw new Error("EMAIL_ALREADY_EXIST");
+  }
+
+  const isPending = await checkExistingPendingRequest(payload.email);
+  if(isPending){
+    throw new Error("REQUEST_ALREADY_PENDING");
+  }
+
+  const newRequest = await createAccountRequest(payload);
+  return newRequest;
+}
