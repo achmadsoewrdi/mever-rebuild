@@ -111,3 +111,37 @@
 		</div>
 	{/if}
 </dialog>
+
+<style>
+	/* Animasi untuk Modal Panel */
+	dialog[open] {
+		animation: modal-show 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
+
+	/* Animasi untuk Background Gelap (Backdrop) */
+	dialog[open]::backdrop {
+		animation: backdrop-show 0.3s ease-out forwards;
+	}
+
+	@keyframes modal-show {
+		from {
+			opacity: 0;
+			transform: scale(0.95) translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+	}
+
+	@keyframes backdrop-show {
+		from {
+			opacity: 0;
+			backdrop-filter: blur(0px);
+		}
+		to {
+			opacity: 1;
+			backdrop-filter: blur(4px); /* Mengembalikan blur karena Tailwind backdrop class tidak terevaluasi selama animasi di beberapa browser */
+		}
+	}
+</style>

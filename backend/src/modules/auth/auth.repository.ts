@@ -86,14 +86,23 @@ export const checkExistingPendingRequest = async (email: string): Promise<boolea
 
 
 export const createAccountRequest = async (data: RequestsAccountInput) => {
-  const [newRequest] = await db
-    .insert(accountRequests)
-    .values({
-      name: data.name,
-      email: data.email,
-      department: data.department,
-      status: "pending", 
-    })
-    .returning(); 
-  return newRequest;
+  try {
+    const [newRequest] = await db
+      .insert(accountRequests)
+      .values({
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        status: "pending", 
+      })
+      .returning(); 
+    return newRequest;
+  } catch (error: any) {
+    // 23505 adalah kode error PostgreSQL untuk unique constraint violation
+    if (error.code === "23505") {
+      throw new Error("Email ini sudah mengajukan request sebelumnya.");
+    }
+    // Lempar error lain jika bukan karena duplikat
+    throw error;
+  }
 };

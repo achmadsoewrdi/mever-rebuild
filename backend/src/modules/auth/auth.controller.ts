@@ -200,6 +200,10 @@ export const handleRequestAccount = async(
       return reply.status(409).send(errorResponse("Email ini sudah mengirimkan permintaan dan sedang menunggu persetujuan."));
     }
 
+    if (err.message === "Email ini sudah mengajukan request sebelumnya.") {
+      return reply.status(409).send(errorResponse(err.message));
+    }
+
     //Tangani Error Umum
     console.error("❌ Request Account error:", err);
     reply.status(500).send(errorResponse("Terjadi kesalahan server saat memproses permintaan"));
