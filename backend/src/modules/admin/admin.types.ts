@@ -21,6 +21,12 @@ export const updateStatusSchema = z.object({
 export type UpdateRoleDto = z.infer<typeof updateRoleSchema>;
 export type UpdateStatusDto = z.infer<typeof updateStatusSchema>;
 
+export const updateProfileSchema = z.object({
+  name: z.string().min(2, "Nama minimal 2 karakter"),
+  email: z.string().email("Email tidak valid"),
+});
+export type UpdateProfileDto = z.infer<typeof updateProfileSchema>;
+
 export const createUserSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
   email: z.string().email("Email tidak valid"),

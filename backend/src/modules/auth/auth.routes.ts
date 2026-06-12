@@ -6,6 +6,7 @@ import {
   handleMfaEnable,
   handleMfaLoginVerify,
   handleMfaSetup,
+  handleRequestAccount
 } from "./auth.controller";
 import { authenticate } from "../../middlewares/authenticate";
 
@@ -29,4 +30,6 @@ export const registerAuthRoutes = async (
   app.post("/auth/mfa/enable", handleMfaEnable);
   // 3. POST /auth/login/mfa (Verifikasi OTP saat Login - Tanpa Auth)
   app.post("/auth/login/mfa", handleMfaLoginVerify);
+
+  app.post("/auth/request-account", {config:{rateLimit:{max:3, timeWindow:1000*60*60}}}, handleRequestAccount);
 };

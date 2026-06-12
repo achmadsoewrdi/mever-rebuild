@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { type AccountRequestParams } from '$lib/types/api.types';
 
 // mengambik semua user
 export async function getAllUser() {
@@ -13,4 +14,29 @@ export async function deleteUser(id: string) {
 // menambah user baru
 export async function createUser(data: Record<string, string>) {
 	return apiClient.post('/admin/users', data);
+}
+
+// mengambil data account request
+export async function getAccountRequests(params?: AccountRequestParams){
+	return apiClient.get('/admin/account-requests',{params});
+}
+
+// menyetujui request
+export async function approveAccountRequest(id:string){
+	return apiClient.post(`/admin/account-requests/${id}/approve`);
+}
+
+// menolak request
+export async function rejectAccountRequest(id:string){
+	return apiClient.post(`/admin/account-requests/${id}/reject`);
+}
+
+// mengubah role user
+export async function updateUserRole(id: string, role: string) {
+	return apiClient.put(`/admin/users/${id}/role`, { role });
+}
+
+// mengubah profil user (name & email)
+export async function updateUserProfile(id: string, name: string, email: string) {
+	return apiClient.put(`/admin/users/${id}/profile`, { name, email });
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Sun, Moon, ChevronDown, User, LogOut } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
-	import { page } from '$app/state';
 	import { getContext } from 'svelte'; 
 	import { profileState } from '$lib/stores/profile.svelte';
 
@@ -30,17 +29,6 @@
 
 	let isDropdownOpen = $state(false);
 
-	// Auto-detect judul halaman berdasarkan URL saat ini (Svelte 5 Runes)
-	let pageTitle = $derived.by(() => {
-		const path = page.url.pathname as string;
-		if (path === '/admin') return 'Dashboard';
-		if (path.startsWith('/admin/videos')) return 'Video Library';
-		if (path.startsWith('/admin/users')) return 'User Management';
-		if (path.startsWith('/admin/transcoder')) return 'Transcode Jobs';
-		if (path.startsWith('/admin/settings')) return 'Account Settings';
-		return 'Admin';
-	});
-
 	function handleLogout() {
 		document.cookie = 'auth_token=; path=/; max-age=0;';
 		window.location.href = '/auth/login';
@@ -50,14 +38,8 @@
 <svelte:window onclick={() => (isDropdownOpen = false)} />
 
 <nav
-	class="flex h-16 w-full items-center justify-between border-b-2 border-slate-200 bg-white px-6 text-text-main dark:border-border-base/50 dark:bg-bg-secondary"
+	class="flex h-16 w-full items-center justify-end border-b-2 border-slate-200 bg-white px-6 text-text-main dark:border-border-base/50 dark:bg-bg-secondary"
 >
-	<div class="flex items-center">
-		<h1 class="text-2xl font-bold text-slate-800 dark:text-white">
-			{pageTitle}
-		</h1>
-	</div>
-
 	<div class="flex items-center gap-3">
 		<div class="relative">
 			<button

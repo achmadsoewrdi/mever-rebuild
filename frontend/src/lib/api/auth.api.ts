@@ -29,3 +29,7 @@ export const enableMfaApi = async (payload: { userId: string; token: string }): 
 export const setupMfaApi = async (): Promise<ApiResponse<{ secret: string; otpauthUrl: string }>> => {
 	return await apiClient.post('/auth/mfa/setup');
 };
+
+export const requestAccountApi = async(payload: {name:string, email:string, department:string}):Promise<ApiResponse> => {
+	return await apiClient.post('/auth/request-account', payload);
+};

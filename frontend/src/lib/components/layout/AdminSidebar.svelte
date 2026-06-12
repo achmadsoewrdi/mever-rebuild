@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { LayoutDashboard, Film, Users, Sliders,Settings, HardDrive } from 'lucide-svelte';
+	import { LayoutDashboard, Film, Users, Sliders, Settings, HardDrive, UserPlus } from 'lucide-svelte';
 	import logoImage from '$lib/assets/image.png';
 
 	function isActive(path: string) {
@@ -66,6 +66,21 @@
 				{/if}
 				<Users size={20} />
 				User Management
+			</a>
+
+			<!-- Account Requests -->
+			<a
+				href="/admin/account-requests"
+				class="relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all
+				{isActive('/admin/account-requests')
+					? 'bg-[#FF1E4D] text-white'
+					: 'text-slate-600 hover:bg-slate-50 dark:text-text-muted dark:hover:bg-bg-elevated'}"
+			>
+				{#if isActive('/admin/account-requests')}
+					<div class="absolute top-2 bottom-2 left-2 w-1 rounded-full bg-white"></div>
+				{/if}
+				<UserPlus size={20} />
+				Account Requests
 			</a>
 
 			<!-- Transcode Jobs -->

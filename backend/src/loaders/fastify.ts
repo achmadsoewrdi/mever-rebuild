@@ -3,6 +3,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyJwt from "@fastify/jwt";
 import fastifyMultipart from "@fastify/multipart";
 import { env } from "../config/env";
+import { loadRateLimit } from "./rateLimit";
 
 export const buildFastify = (): FastifyInstance => {
   return Fastify({
@@ -33,6 +34,9 @@ export const loadFastifyPlugins = async (app: FastifyInstance) => {
     },
   });
 
+  // registrasi rate limit
+  await loadRateLimit(app);
+
   // Decorator untuk proteksi route
   app.decorate("authenticate", async (request: any, reply: any) => {
     try {
@@ -42,5 +46,5 @@ export const loadFastifyPlugins = async (app: FastifyInstance) => {
     }
   });
 
-  console.log("✅ Fastify plugins loaded (CORS, JWT, Multipart)");
+  console.log("✅ Fastify plugins loaded (CORS, JWT, Multipart,Rate Limit)");
 };

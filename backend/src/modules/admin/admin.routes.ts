@@ -9,6 +9,10 @@ import {
   handleGetVideoDetail,
   handleUpdateVideo,
   handleDeleteVideo,
+  handleGetAccountRequests,
+  handleApproveAccountRequest,
+  handleRejectAccountRequest,
+  handleUpdateUserProfile
 } from "./admin.controller";
 import { authenticate } from "../../middlewares/authenticate";
 import { authorize } from "../../middlewares/authorize";
@@ -29,6 +33,7 @@ export const adminRoutes = async (app: FastifyInstance) => {
   // Dashboard
   app.get("/admin/dashboard", adminProtection, handleGetDashboard);
   app.put("/admin/users/:id/role", adminProtection, handleUpdateRole);
+  app.put("/admin/users/:id/profile", adminProtection, handleUpdateUserProfile);
   app.put("/admin/users/:id/status", adminProtection, handleUpdateStatus);
   app.delete("/admin/users/:id", adminProtection, handleRemoveUser);
   app.post("/admin/users", adminProtection, handleCreateUser);
@@ -38,6 +43,11 @@ export const adminRoutes = async (app: FastifyInstance) => {
   app.get("/admin/videos/:id", adminProtection, handleGetVideoDetail);
   app.put("/admin/videos/:id", adminProtection, handleUpdateVideo);
   app.delete("/admin/videos/:id", adminProtection, handleDeleteVideo);
+
+  // Account Requests Routes
+  app.get("/admin/account-requests", adminProtection, handleGetAccountRequests);
+  app.post("/admin/account-requests/:id/approve", adminProtection, handleApproveAccountRequest);
+  app.post("/admin/account-requests/:id/reject", adminProtection, handleRejectAccountRequest);
 
   // Daftarkan route untuk /admin/jobs
   app.register(adminJobsRoutes, { prefix: "/admin" });

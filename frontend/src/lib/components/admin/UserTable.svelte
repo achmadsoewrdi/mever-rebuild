@@ -31,7 +31,7 @@
 
 	function handleEdit(userId: string) {
 		openDropdownId = null;
-		dispatch('edit', { id: userId });
+		goto(`/admin/users/edit/${userId}`);
 	}
 
 	function handleDeleteAction(userId: string) {
@@ -73,7 +73,7 @@
 			<span class="text-sm text-text-muted">({users.length} items)</span>
 		</div>
 
-		<Button variant="primary" size="default" onclick={() => goto('/admin/users/add')}>Add User</Button>
+
 	</div>
 
 	<!-- Table Section -->

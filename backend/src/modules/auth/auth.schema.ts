@@ -26,5 +26,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, "password tidak boleh kosong"),
 });
 
+// ====================
+// REQUEST ACCOUNT SCHEMA
+// ====================
+
+export const requestAccountSchema = z.object({
+  name: z.string().min(1,"Nama tidak boleh kosong").max(100,"Nama Maksimal 100 karakter"),
+  email: z.email("Format email tidak valid"),
+  department: z.string().min(1,"Department tidak boleh kosong"),
+});
+
 export type ResgiterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RequestsAccountInput = z.infer<typeof requestAccountSchema>;

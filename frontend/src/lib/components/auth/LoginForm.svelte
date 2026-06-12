@@ -125,8 +125,7 @@
 		<Button
 			variant="outline"
 			class="w-full text-text-sub hover:text-text-main"
-			type="button"
-			disabled={loading}
+			href="/auth/request-account"
 		>
 			Request a new account
 		</Button>

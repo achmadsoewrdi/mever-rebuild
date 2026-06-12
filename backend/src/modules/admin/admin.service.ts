@@ -4,6 +4,8 @@ import { redisCache } from "../../loaders";
 import { getActiveConfigDecrypted, getConfigById } from "../storage-configs/storage-configs.service";
 import { S3Client, DeleteObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { decrypt } from "../../utils/encrypt";
+import { sendAccountApprovedEmail, sendAccountRejectedEmail } from "../../utils/mailjet";
+import { generateRandomPassword } from "../../utils/password";
 
 export const getAllUsers = async () => {
   return await repo.getAllUser();
@@ -36,6 +38,14 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
   }
 
   return updateUser;
+};
+
+export const updateUserProfile = async (userId: string, name: string, email: string) => {
+  const updatedUser = await repo.updateUserBasicInfo(userId, { name, email });
+  if (!updatedUser) {
+    throw new Error("User Not Found");
+  }
+  return updatedUser;
 };
 
 /**
@@ -193,4 +203,58 @@ export const removeVideo = async (id: string, isHard: boolean = false) => {
   }
 
   return video;
+};
+
+/**
+ * =====================
+ * Account Requests
+ * =====================
+ */
+
+export const fetchAccountRequests = async (query: { status?: string }) => {
+  return await repo.getAccountRequests(query.status);
+};
+
+export const approveAccountRequest = async (id: string) => {
+  const request = await repo.getAccountRequestById(id);
+  if (!request) throw new Error("Request Not Found");
+  if (request.status !== "pending") throw new Error("Request is not pending");
+
+  // Periksa apakah email sudah digunakan
+  const existingUsers = await repo.getAllUser();
+  if (existingUsers.find(u => u.email === request.email)) {
+    throw new Error("Email already registered");
+  }
+
+  const plainPassword = generateRandomPassword(8);
+  const passwordHash = await hashPassword(plainPassword);
+
+  // Buat User Baru
+  const newUser = await repo.createUser({
+    name: request.name,
+    email: request.email,
+    role: "user", // Akun yang disetujui defaultnya adalah user biasa
+    passwordHash: passwordHash
+  });
+
+  // Update Status Request
+  await repo.updateAccountRequestStatus(id, "approved");
+
+  // Kirim Email via Mailjet
+  await sendAccountApprovedEmail(request.email, request.name, plainPassword);
+
+  return newUser;
+};
+
+export const rejectAccountRequest = async (id: string) => {
+  const request = await repo.getAccountRequestById(id);
+  if (!request) throw new Error("Request Not Found");
+  if (request.status !== "pending") throw new Error("Request is not pending");
+
+  const updatedRequest = await repo.updateAccountRequestStatus(id, "rejected");
+
+  // Kirim Email via Mailjet
+  await sendAccountRejectedEmail(request.email, request.name);
+
+  return updatedRequest;
 };
