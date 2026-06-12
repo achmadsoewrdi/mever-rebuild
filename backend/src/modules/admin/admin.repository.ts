@@ -42,6 +42,18 @@ export const deleteUser = async (userId: string) => {
   return result[0];
 };
 
+export const updateUserBasicInfo = async (
+  userId: string,
+  data: { name: string; email: string }
+) => {
+  const result = await db
+    .update(users)
+    .set({ name: data.name, email: data.email, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return result[0];
+};
+
 export const createUser = async (data: {
   name: string;
   email: string;

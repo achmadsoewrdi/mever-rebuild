@@ -40,6 +40,14 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
   return updateUser;
 };
 
+export const updateUserProfile = async (userId: string, name: string, email: string) => {
+  const updatedUser = await repo.updateUserBasicInfo(userId, { name, email });
+  if (!updatedUser) {
+    throw new Error("User Not Found");
+  }
+  return updatedUser;
+};
+
 /**
  * function untuk menghapus user
  */

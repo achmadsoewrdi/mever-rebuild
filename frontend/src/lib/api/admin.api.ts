@@ -30,3 +30,13 @@ export async function approveAccountRequest(id:string){
 export async function rejectAccountRequest(id:string){
 	return apiClient.post(`/admin/account-requests/${id}/reject`);
 }
+
+// mengubah role user
+export async function updateUserRole(id: string, role: string) {
+	return apiClient.put(`/admin/users/${id}/role`, { role });
+}
+
+// mengubah profil user (name & email)
+export async function updateUserProfile(id: string, name: string, email: string) {
+	return apiClient.put(`/admin/users/${id}/profile`, { name, email });
+}

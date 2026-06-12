@@ -3,6 +3,7 @@ import {
   getAllUsers,
   updateUserRole,
   updateUserStatus,
+  updateUserProfile,
   removeUser,
   createUser,
   getAllVideos,
@@ -11,9 +12,9 @@ import {
   removeVideo,
   fetchAccountRequests,
   approveAccountRequest,
-  rejectAccountRequest
+  rejectAccountRequest,
 } from "./admin.service";
-import { updateRoleSchema, updateStatusSchema, createUserSchema } from "./admin.types";
+import { updateRoleSchema, updateStatusSchema, createUserSchema, updateProfileSchema } from "./admin.types";
 import { SuccessResponse, errorResponse } from "../../utils/response";
 
 // ============================================
@@ -41,9 +42,8 @@ export const handleUpdateRole = async (
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> => {
-  const { id } = request.params as { id: string }; // Ambil ID user dari URL
+  const { id } = request.params as { id: string };
 
-  // Validasi body request pakai Zod Schema yang kamu buat tadi
   const parsed = updateRoleSchema.safeParse(request.body);
   if (!parsed.success) {
     return reply
@@ -91,6 +91,36 @@ export const handleUpdateStatus = async (
       return reply.status(404).send(errorResponse("User tidak ditemukan"));
     }
     console.error("❌ Update status error:", err);
+    reply.status(500).send(errorResponse("Terjadi kesalahan server"));
+  }
+};
+
+// ============================================
+//  HANDLER: PUT /admin/users/:id/profile
+// ============================================
+export const handleUpdateUserProfile = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> => {
+  const { id } = request.params as { id: string };
+
+  const parsed = updateProfileSchema.safeParse(request.body);
+  if (!parsed.success) {
+    return reply
+      .status(400)
+      .send(errorResponse("Input tidak valid", parsed.error.issues));
+  }
+
+  try {
+    const updatedUser = await updateUserProfile(id, parsed.data.name, parsed.data.email);
+    reply
+      .status(200)
+      .send(SuccessResponse(updatedUser, "Berhasil mengubah profil user"));
+  } catch (err: any) {
+    if (err.message === "User Not Found") {
+      return reply.status(404).send(errorResponse("User tidak ditemukan"));
+    }
+    console.error("❌ Update profile error:", err);
     reply.status(500).send(errorResponse("Terjadi kesalahan server"));
   }
 };
