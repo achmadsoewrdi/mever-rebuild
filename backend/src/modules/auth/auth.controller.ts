@@ -135,7 +135,7 @@ export const handleMfaEnable = async (
     const result = await verifyAndEnableMFA(userId, token);
     const fullToken = await reply.jwtSign(result.payload);
     
-    reply.send(SuccessResponse({ token: fullToken }, "MFA berhasil diaktifkan"));
+    reply.send(SuccessResponse({ token: fullToken, mfaTrustToken: result.mfaTrustToken }, "MFA berhasil diaktifkan"));
   } catch (err: any) {
     reply
       .status(400)
@@ -164,10 +164,10 @@ export const handleMfaLoginVerify = async (
   const { userId, token } = request.body as { userId: string; token: string };
 
   try {
-    const payload = await verifyMFALogin(userId, token);
-    const fullToken = await reply.jwtSign(payload); // Berikan Full JWT Token karena OTP sukses
+    const result = await verifyMFALogin(userId, token);
+    const fullToken = await reply.jwtSign(result.payload); // Berikan Full JWT Token karena OTP sukses
 
-    reply.send(SuccessResponse({ token: fullToken }, "Login MFA berhasil"));
+    reply.send(SuccessResponse({ token: fullToken, mfaTrustToken: result.mfaTrustToken }, "Login MFA berhasil"));
   } catch (err: any) {
     reply.status(401).send(errorResponse(err.message));
   }

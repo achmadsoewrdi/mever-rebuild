@@ -50,33 +50,38 @@ export const login = async (dto: LoginDto): Promise<LoginResult> => {
   //   mfaEnabled: user.mfaEnabled
   // });
 
-  if (user.role === "admin") {
-    if (user.mfaEnabled) {
-      return { mfaRequired: true, userId: user.id };
-    } else {
-      // Admin tapi belum aktifkan MFA -> Paksa Setup
-      const secret = generateSecret();
-      const otpauthUrl = generateURI({
-        issuer: "MEVER ADMIN",
-        label: user.email,
-        secret,
-      });
-      await updateMfaSecret(user.id, secret);
-
-      return {
-        mfaSetupRequired: true,
-        userId: user.id,
-        otpauthUrl,
-      } as any;
+  if (user.mfaEnabled) {
+    // Jika mfaTrustToken disertakan, cek validitasnya di Redis
+    if (dto.mfaTrustToken) {
+      const trustedUserId = await redisCache.get(`mfa:trust:${dto.mfaTrustToken}`);
+      if (trustedUserId === user.id) {
+        // Bypass MFA karena token valid
+        const payload: JwtPayload = {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          jti: uuidv4(),
+        };
+        return { mfaRequired: false, payload };
+      }
     }
+    return { mfaRequired: true, userId: user.id };
+  } else {
+    // Semua user wajib setup MFA jika belum mengaktifkan
+    const secret = generateSecret();
+    const otpauthUrl = generateURI({
+      issuer: "MEVER",
+      label: user.email,
+      secret,
+    });
+    await updateMfaSecret(user.id, secret);
+
+    return {
+      mfaSetupRequired: true,
+      userId: user.id,
+      otpauthUrl,
+    } as any;
   }
-  const payload: JwtPayload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    jti: uuidv4(),
-  };
-  return { mfaRequired: false, payload };
 };
 
 export const logout = async (jti: string): Promise<void> => {
@@ -93,13 +98,12 @@ export const setupMFA = async (userId: string) => {
     throw new Error("USER NOT FOUND");
   }
 
-  if (user.role !== "admin") {
-    throw new Error("MFA ADMIN ONLY");
-  }
+  // Menghapus batasan role admin agar user biasa bisa setup MFA
+  // if (user.role !== "admin") { ... }
 
   const secret = generateSecret();
   const otpauthUrl = generateURI({
-    issuer: "MEVER ADMIN",
+    issuer: "MEVER",
     label: user.email,
     secret,
   });
@@ -129,6 +133,10 @@ export const verifyAndEnableMFA = async (userId: string, token: string) => {
 
   await enableMfa(userId);
 
+  // Buat MFA Trust Token berlaku 7 hari
+  const mfaTrustToken = uuidv4();
+  await redisCache.set(`mfa:trust:${mfaTrustToken}`, user.id, "EX", 60 * 60 * 24 * 7);
+
   const payload = {
     sub: user.id,
     email: user.email,
@@ -136,7 +144,7 @@ export const verifyAndEnableMFA = async (userId: string, token: string) => {
     jti: uuidv4(),
   };
 
-  return { success: true, payload };
+  return { success: true, payload, mfaTrustToken };
 };
 
 /**
@@ -172,6 +180,10 @@ export const verifyMFALogin = async (userId: string, token: string) => {
     // Bersihkan history kesalahan di Redis jika berhasil
     await redisCache.del(lockoutKey);
 
+    // Buat MFA Trust Token berlaku 7 hari
+    const mfaTrustToken = uuidv4();
+    await redisCache.set(`mfa:trust:${mfaTrustToken}`, user.id, "EX", 60 * 60 * 24 * 7);
+
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -179,7 +191,7 @@ export const verifyMFALogin = async (userId: string, token: string) => {
       jti: uuidv4(),
     };
 
-    return payload;
+    return { payload, mfaTrustToken };
   }
 
   // Jika gagal, hitung kesalahan

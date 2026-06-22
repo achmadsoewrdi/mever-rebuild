@@ -19,6 +19,11 @@
 		rememberMeState = rememberMe;
 		loginError = null;
 		try {
+			// Sisipkan mfaTrustToken jika ada di localStorage
+			const mfaTrustToken = localStorage.getItem('mfa_trust_token');
+			if (mfaTrustToken) {
+				data.mfaTrustToken = mfaTrustToken;
+			}
 			const res = await loginApi(data);
 			const userData = res.data;
 
@@ -54,11 +59,12 @@
 		try {
 			const res = await enableMfaApi({ userId, token }); // Aktifkan di backend
 			const fullToken = res.data?.token;
+			const mfaTrustToken = res.data?.mfaTrustToken;
 
 			toast.success('MFA Berhasil diaktifkan!');
 
 			if (fullToken) {
-				completeLogin(fullToken, rememberMeState);
+				completeLogin(fullToken, rememberMeState, mfaTrustToken);
 			} else {
 				goto('/dashboard');
 			}
@@ -73,9 +79,10 @@
 		try {
 			const res = await verifyMfaLoginApi({ userId, token });
 			const fullToken = res.data?.token;
+			const mfaTrustToken = res.data?.mfaTrustToken;
 
 			if (fullToken) {
-				completeLogin(fullToken, rememberMeState);
+				completeLogin(fullToken, rememberMeState, mfaTrustToken);
 			}
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : 'Kode MFA salah atau kedaluwarsa';
@@ -84,9 +91,14 @@
 		}
 	}
 
-	function completeLogin(token: string, rememberMe: boolean) {
+	function completeLogin(token: string, rememberMe: boolean, mfaTrustToken?: string) {
 		const maxAge = rememberMe ? 2592000 : 86400;
 		document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+		
+		if (mfaTrustToken) {
+			localStorage.setItem('mfa_trust_token', mfaTrustToken);
+		}
+
 		toast.success('Login Berhasil');
 		
 		// Decode token untuk mengecek role

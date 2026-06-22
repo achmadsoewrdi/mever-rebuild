@@ -7,6 +7,7 @@ export interface LoginResponse {
 	mfaSetupRequired?: boolean;
 	userId?: string;
 	otpauthUrl?: string;
+	mfaTrustToken?: string;
 }
 
 /**

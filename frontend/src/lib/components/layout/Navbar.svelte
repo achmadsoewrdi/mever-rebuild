@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Sun, Moon, ChevronDown, User, LogOut } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
+	import { getContext } from 'svelte';
 	import meverLogo from '$lib/assets/image.png';
 
 	// Import UI Component
@@ -22,16 +23,8 @@
 	);
 
 	let isDropdownOpen = $state(false);
-	let isDarkMode = $state(false);
-
-	function toggleTheme() {
-		isDarkMode = !isDarkMode;
-		if (isDarkMode) {
-			document.documentElement.classList.add('dark');
-		} else {
-			document.documentElement.classList.remove('dark');
-		}
-	}
+	// Ambil state tema dari context
+	const theme = getContext<{ isDark: boolean; toggle: () => void }>('theme');
 
 	function handleLogout() {
 		document.cookie = 'auth_token=; path=/; max-age=0;';
@@ -111,22 +104,22 @@
 		<!-- 2. Tombol Toggle Tema -->
 		<button
 			type="button"
-			onclick={toggleTheme}
+			onclick={() => theme.toggle()}
 			class="flex h-10 w-[72px] items-center justify-between rounded-full border border-slate-200 bg-white p-1 transition-colors dark:border-bg-elevated dark:bg-bg-secondary"
 		>
 			<div
-				class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-300 {isDarkMode
+				class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-300 {theme.isDark
 					? 'text-slate-400'
 					: 'bg-primary text-white'}"
 			>
-				<Sun size={15} strokeWidth={isDarkMode ? 2 : 2.5} />
+				<Sun size={15} strokeWidth={theme.isDark ? 2 : 2.5} />
 			</div>
 			<div
-				class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-300 {isDarkMode
+				class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-300 {theme.isDark
 					? 'bg-slate-700 text-white'
 					: 'text-slate-400'}"
 			>
-				<Moon size={15} strokeWidth={isDarkMode ? 2.5 : 2} />
+				<Moon size={15} strokeWidth={theme.isDark ? 2.5 : 2} />
 			</div>
 		</button>
 	</div>

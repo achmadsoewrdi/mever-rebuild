@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte'; // 1. Import Sidebar
+	import WelcomeTourModal from '$lib/components/user/WelcomeTourModal.svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { onMount, untrack } from 'svelte';
@@ -46,4 +47,7 @@
 			{/if}
 		</main>
 	</div>
+
+	<!-- Modal Panduan Pengguna Baru -->
+	<WelcomeTourModal />
 </div>

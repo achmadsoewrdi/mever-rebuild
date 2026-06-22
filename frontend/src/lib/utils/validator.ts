@@ -6,7 +6,8 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
 	email: z.email({ error: 'Format Email salah' }).min(1, 'Email wajib diisi'),
-	password: z.string().min(8, 'Password minimal harus 8 karaker')
+	password: z.string().min(8, 'Password minimal harus 8 karaker'),
+	mfaTrustToken: z.string().optional()
 });
 
 /**

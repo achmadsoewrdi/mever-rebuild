@@ -24,6 +24,7 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.email("Format email tidak valid"),
   password: z.string().min(1, "password tidak boleh kosong"),
+  mfaTrustToken: z.string().optional(),
 });
 
 // ====================

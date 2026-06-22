@@ -16,9 +16,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mever_redis
-    command: redis-server --requirepass mever_redis_pass
+    command: redis-server --requirepass mever_redis_pass --appendonly yes
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
 
   minio:
     image: minio/minio:latest
@@ -67,3 +69,4 @@ volumes:
   postgres_data:
   minio_data:
   minio2_data:
+  redis_data:

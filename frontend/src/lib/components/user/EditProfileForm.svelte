@@ -2,7 +2,7 @@
 	import { Input, Button } from '$lib/components/ui';
 	import { updateProfile, changePassword, type UserProfile } from '$lib/api/users.api';
 	import { toast } from '$lib/stores/toast.store';
-	import { Check, X } from 'lucide-svelte';
+	import { Check, X, ArrowLeft } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { profileState } from '$lib/stores/profile.svelte';
 	import { goto } from '$app/navigation';
@@ -120,6 +120,10 @@
 <div class="mx-auto max-w-4xl space-y-8 px-4 py-10">
 	<!-- Header Dashboard -->
 	<div class="space-y-4">
+		<Button variant="ghost" onclick={() => window.history.back()} class="flex items-center gap-2 -ml-4 px-4 hover:bg-slate-100 dark:hover:bg-[#1e1e1e] text-text-sub hover:text-text-main">
+			<ArrowLeft size={18} />
+			Kembali
+		</Button>
 		<div class="space-y-1">
 			<h1 class="text-3xl font-bold tracking-tight text-text-main">Account Settings</h1>
 			<p class="font-medium text-text-sub">Manage your personal info and credentials.</p>

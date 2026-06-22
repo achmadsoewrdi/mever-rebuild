@@ -99,7 +99,8 @@ export const createAccountRequest = async (data: RequestsAccountInput) => {
     return newRequest;
   } catch (error: any) {
     // 23505 adalah kode error PostgreSQL untuk unique constraint violation
-    if (error.code === "23505") {
+    // Drizzle mungkin membungkusnya di dalam error.cause
+    if (error.code === "23505" || error.cause?.code === "23505") {
       throw new Error("Email ini sudah mengajukan request sebelumnya.");
     }
     // Lempar error lain jika bukan karena duplikat
