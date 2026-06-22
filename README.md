@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/src/lib/assets/image.png" alt="MEVER Platform Banner" width="100%" />
+  <img src="frontend/src/lib/assets/image.png" alt="MEVER Platform Banner" width="300px" />
 </p>
 
 # MEVER — Platform Video Streaming Internal
