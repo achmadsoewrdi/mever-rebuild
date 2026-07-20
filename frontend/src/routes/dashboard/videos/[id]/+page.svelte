@@ -57,6 +57,7 @@
 
 	// Helper Label Dropdown
 	function getAssetLabel(asset: VideoAsset | { id: string, protocol: string, resolution: string }) {
+		if (asset.id === 'auto-dash') return 'Auto (Adaptive DASH)';
 		if (asset.id === 'auto-hls') return 'Auto (Adaptive HLS)';
 		
 		// Ekstrak hanya resolusi (misal: "1080p", "4k") dari string yang mungkin panjang seperti "360p Matroska (MKV)"
@@ -78,7 +79,9 @@
 	// Set default asset saat data video masuk
 	$effect(() => {
 		if (video?.assets?.length && !selectedAssetId) {
-			if (streamInfo?.hlsUrl) {
+			if (streamInfo?.dashUrl) {
+				selectedAssetId = 'auto-dash';
+			} else if (streamInfo?.hlsUrl) {
 				selectedAssetId = 'auto-hls';
 			} else {
 				selectedAssetId = video.assets[0].id;
@@ -203,7 +206,15 @@
 						<VideoDebugPanel stats={videoDebugStats} onClose={() => (showVideoDebug = false)} />
 					</div>
 				{/if}
-				{#if selectedAssetId === 'auto-hls' && streamInfo?.hlsUrl}
+				{#if selectedAssetId === 'auto-dash' && streamInfo?.dashUrl}
+					<VideoPlayer
+						src={streamInfo.dashUrl}
+						videoType="application/dash+xml"
+						poster={streamInfo.thumbnailUrl || video?.thumbnailUrl}
+						bind:showDebug={showVideoDebug}
+						bind:debugStats={videoDebugStats}
+					/>
+				{:else if selectedAssetId === 'auto-hls' && streamInfo?.hlsUrl}
 					<VideoPlayer
 						src={streamInfo.hlsUrl}
 						videoType="application/x-mpegURL"
@@ -268,6 +279,20 @@
 									<div class="p-4 text-center text-xs text-text-muted">No assets available</div>
 								{:else}
 									<div class="flex flex-col gap-0.5">
+										{#if streamInfo?.dashUrl}
+											<button
+												class={`flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedAssetId === 'auto-dash' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10' : ''}`}
+												onclick={() => {
+													selectedAssetId = 'auto-dash';
+													isDropdownOpen = false;
+												}}
+											>
+												<span class="font-medium">Auto (Adaptive DASH)</span>
+												{#if selectedAssetId === 'auto-dash'}
+													<Check size={16} />
+												{/if}
+											</button>
+										{/if}
 										{#if streamInfo?.hlsUrl}
 											<button
 												class={`flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedAssetId === 'auto-hls' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10' : ''}`}
