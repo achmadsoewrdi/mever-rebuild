@@ -105,7 +105,7 @@
 		<button
 			type="button"
 			onclick={() => theme.toggle()}
-			class="flex h-10 w-[72px] items-center justify-between rounded-full border border-slate-200 bg-white p-1 transition-colors dark:border-bg-elevated dark:bg-bg-secondary"
+			class="flex h-10 w-18 items-center justify-between rounded-full border border-slate-200 bg-white p-1 transition-colors dark:border-bg-elevated dark:bg-bg-secondary"
 		>
 			<div
 				class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-300 {theme.isDark

@@ -190,7 +190,7 @@
 						</div>
 						<div class="flex justify-between">
 							<span class="text-text-sub">Original Name</span>
-							<span class="max-w-[150px] truncate text-text-main" title={video.originalName}
+							<span class="max-w-37.5 truncate text-text-main" title={video.originalName}
 								>{video.originalName || '-'}</span
 							>
 						</div>

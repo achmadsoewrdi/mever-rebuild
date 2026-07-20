@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Modal, Button } from '$lib/components/ui';
-	import { Info, Lock, ArrowRight, Check } from 'lucide-svelte';
+	import { Info, Lock, ArrowRight} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 

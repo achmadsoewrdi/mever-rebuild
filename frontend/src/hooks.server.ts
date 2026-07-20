@@ -8,11 +8,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (token) {
 		event.locals.token = token;
 		try {
-			// Coba ekstrak token JWT asli (format: header.payload.signature)
+			// Ekstrak token JWT asli
 			let base64Payload = token.split('.')[1];
-			// Convert Base64Url to Base64
 			base64Payload = base64Payload.replace(/-/g, '+').replace(/_/g, '/');
-			// Add padding if necessary
+
+			// Tambahkan padding jika diperlukan
 			while (base64Payload.length % 4) {
 				base64Payload += '=';
 			}
@@ -30,15 +30,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 				initials: initials
 			};
 		} catch {
-			// Jika gagal decode (mungkin karena token dari API saat ini belum format JWT standar),
-			// berikan data dummy agar aplikasi tidak crash
-			event.locals.user = {
-				sub: 'dummy-id',
-				email: 'ardi@example.com',
-				role: 'admin',
-				name: 'Ardi Mever',
-				initials: 'AM'
-			};
+			// Jika gagal decode, pastikan user dianggap tidak login
+			event.locals.user = null;
+			event.locals.token = null;
 		}
 	} else {
 		event.locals.user = null;
@@ -46,20 +40,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// 3. Auth Guard (Gerbang Keamanan)
+	const { pathname } = event.url;
 
-	if (event.url.pathname === '/') {
-		throw redirect(303, '/dashboard');
-	}
-	// Jika mau ke /dashboard TAPI belum punya user (belum login)
-	if (event.url.pathname.startsWith('/dashboard')) {
+	// Catatan: Rute '/' (Landing Page) tidak di-redirect di sini
+	// sehingga semua orang (login maupun belum) bisa mengaksesnya.
+
+	// Proteksi Halaman Dashboard
+	if (pathname.startsWith('/dashboard')) {
 		if (!event.locals.user) {
-			// Paksa kembali ke halaman login
+			// Belum login, lempar ke halaman login
 			throw redirect(303, '/auth/login');
 		}
 	}
 
-	// Proteksi Halaman Admin (Hanya boleh diakses oleh role === 'admin')
-	if (event.url.pathname.startsWith('/admin')) {
+	// Proteksi Halaman Admin
+	if (pathname.startsWith('/admin')) {
 		if (!event.locals.user) {
 			// Belum login, lempar ke login
 			throw redirect(303, '/auth/login');
@@ -70,16 +65,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	// Jika mau ke /login TAPI sudah login
-	if (event.url.pathname.startsWith('/auth/login') && event.locals.user) {
-		// Jika admin, lempar ke /admin. Jika user, ke /dashboard
-		if (event.locals.user.role === 'admin') {
-			throw redirect(303, '/admin');
-		}
-		throw redirect(303, '/dashboard');
+	// Mencegah user yang sudah login untuk mengakses halaman login kembali
+	if (pathname.startsWith('/auth/login') && event.locals.user) {
+		// Jika admin, lempar ke /admin. Jika user biasa, ke /dashboard
+		throw redirect(303, event.locals.user.role === 'admin' ? '/admin' : '/dashboard');
 	}
 
 	// 4. Lanjutkan perjalanan halaman
-	const response = await resolve(event);
-	return response;
+	return await resolve(event);
 };
