@@ -153,7 +153,7 @@ export const getVideoStream = async (id: string) => {
     title: video.title,
     thumbnailUrl: video.thumbnailUrl,
     hlsUrl: `${nginxBase}${video.streamUrl}`,
-    dashUrl: `${nginxBase}${video.streamUrl.replace("master.m3u8", "manifest.mpd")}`,
+    dashUrl: `${nginxBase}${video.streamUrl.replace("/video/", "/video-dash/").replace("master.m3u8", "manifest.mpd")}`,
     status: video.status,
     durationSeconds: video.durationSeconds,
   };
